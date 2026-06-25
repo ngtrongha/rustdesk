@@ -856,10 +856,11 @@ pub fn hostname() -> String {
 
 #[inline]
 pub fn get_sysinfo() -> serde_json::Value {
-    use hbb_common::sysinfo::System;
+    use hbb_common::sysinfo::{System, Disks};
     let mut system = System::new();
     system.refresh_memory();
     system.refresh_cpu();
+
     let memory = system.total_memory();
     let memory = (memory as f64 / 1024. / 1024. / 1024. * 100.).round() / 100.;
     let cpus = system.cpus();
@@ -881,6 +882,111 @@ pub fn get_sysinfo() -> serde_json::Value {
         os = format!("{os} - {}", system.os_version().unwrap_or_default());
     }
     let hostname = hostname(); // sys.hostname() return localhost on android in my test
+
+    // Collect network info using default_net
+    let mut interfaces_info = Vec::new();
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    {
+        for interface in default_net::get_interfaces() {
+            let name = interface.name;
+            let mac = interface.mac_addr.map(|m| m.address()).unwrap_or_default();
+            let mut ips = Vec::new();
+            for ip in interface.ipv4 {
+                ips.push(ip.addr.to_string());
+            }
+            for ip in interface.ipv6 {
+                ips.push(ip.addr.to_string());
+            }
+            interfaces_info.push(json!({
+                "name": name,
+                "mac": mac,
+                "ips": ips,
+            }));
+        }
+    }
+    let network_info = json!(interfaces_info).to_string();
+
+    // Collect disk info using Disks
+    let mut disks_info = Vec::new();
+    let disks = Disks::new_with_refreshed_list();
+    for disk in &disks {
+        let name = disk.name().to_string_lossy().to_string();
+        let mount_point = disk.mount_point().to_string_lossy().to_string();
+        let total = disk.total_space() / 1024 / 1024 / 1024; // in GB
+        let available = disk.available_space() / 1024 / 1024 / 1024; // in GB
+        disks_info.push(json!({
+            "name": name,
+            "mount_point": mount_point,
+            "total_gb": total,
+            "available_gb": available,
+        }));
+    }
+    let mut peripherals = Vec::new();
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        let mut cmd = std::process::Command::new("powershell");
+        cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+        cmd.args(&[
+            "-NoProfile",
+            "-Command",
+            "Get-CimInstance Win32_PnPEntity | Where-Object { $_.Present -and ($_.Class -in 'USB','Monitor','Keyboard','Mouse','Printer','Camera','AudioDevice','Image') } | Select-Object Name, Class, Manufacturer | ConvertTo-Json"
+        ]);
+        let output = cmd.output();
+        if let Ok(out) = output {
+            if out.status.success() {
+                let stdout = String::from_utf8_lossy(&out.stdout);
+                if let Ok(json_val) = serde_json::from_str::<serde_json::Value>(&stdout) {
+                    if let Some(arr) = json_val.as_array() {
+                        for item in arr {
+                            peripherals.push(item.clone());
+                        }
+                    } else if json_val.is_object() {
+                        peripherals.push(json_val);
+                    }
+                }
+            }
+        }
+    }
+    #[cfg(target_os = "linux")]
+    {
+        let output = std::process::Command::new("lsusb").output();
+        if let Ok(out) = output {
+            if out.status.success() {
+                let stdout = String::from_utf8_lossy(&out.stdout);
+                for line in stdout.lines() {
+                    if !line.trim().is_empty() {
+                        peripherals.push(json!({
+                            "Name": line.trim().to_string(),
+                            "Class": "USB",
+                            "Manufacturer": ""
+                        }));
+                    }
+                }
+            }
+        }
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let output = std::process::Command::new("system_profiler")
+            .args(&["SPUSBDataType", "-json"])
+            .output();
+        if let Ok(out) = output {
+            if out.status.success() {
+                let stdout = String::from_utf8_lossy(&out.stdout);
+                if let Ok(json_val) = serde_json::from_str::<serde_json::Value>(&stdout) {
+                    peripherals.push(json_val);
+                }
+            }
+        }
+    }
+
+    let hardware_info = json!({
+        "disks": disks_info,
+        "total_swap_gb": system.total_swap() / 1024 / 1024 / 1024,
+        "peripherals": peripherals,
+    }).to_string();
+
     #[cfg(any(target_os = "android", target_os = "ios"))]
     let out;
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
@@ -890,6 +996,8 @@ pub fn get_sysinfo() -> serde_json::Value {
         "memory": format!("{memory}GB"),
         "os": os,
         "hostname": hostname,
+        "hardware_info": hardware_info,
+        "network_info": network_info,
     });
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     {
@@ -953,8 +1061,12 @@ pub fn check_software_update() {
 // Because the url is always `https://api.rustdesk.com/version/latest`.
 #[tokio::main(flavor = "current_thread")]
 pub async fn do_check_software_update() -> hbb_common::ResultType<()> {
-    let (request, url) =
+    let (request, mut url) =
         hbb_common::version_check_request(hbb_common::VER_TYPE_RUSTDESK_CLIENT.to_string());
+    let api_server = ui_get_api_server();
+    if !api_server.is_empty() {
+        url = format!("{}/api/version/latest", api_server);
+    }
     let proxy_conf = Config::get_socks();
     let tls_url = get_url_for_tls(&url, &proxy_conf);
     let tls_type = get_cached_tls_type(tls_url);
