@@ -1102,8 +1102,8 @@ void setPasswordDialog({VoidCallback? notEmptyCallback}) async {
             }
             close();
           },
-          buttonStyle:
-              ButtonStyle(backgroundColor: WidgetStatePropertyAll(Colors.red)),
+          buttonStyle: ButtonStyle(
+              backgroundColor: MaterialStatePropertyAll(Colors.red)),
         );
         final okButton = dialogButton(
           "OK",

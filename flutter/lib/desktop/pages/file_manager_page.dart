@@ -839,11 +839,11 @@ class _FileManagerViewState extends State<FileManagerView> {
               if (isWeb)
                 Obx(() => ElevatedButton.icon(
                       style: ButtonStyle(
-                        padding: WidgetStateProperty.all<EdgeInsetsGeometry>(
+                        padding: MaterialStateProperty.all<EdgeInsetsGeometry>(
                             isLocal
                                 ? EdgeInsets.only(left: 10)
                                 : EdgeInsets.only(right: 10)),
-                        backgroundColor: WidgetStateProperty.all(
+                        backgroundColor: MaterialStateProperty.all(
                           selectedItems.items.isEmpty
                               ? MyTheme.accent80
                               : MyTheme.accent,
@@ -898,11 +898,11 @@ class _FileManagerViewState extends State<FileManagerView> {
                     )).marginOnly(left: 16),
               Obx(() => ElevatedButton.icon(
                     style: ButtonStyle(
-                      padding: WidgetStateProperty.all<EdgeInsetsGeometry>(
+                      padding: MaterialStateProperty.all<EdgeInsetsGeometry>(
                           isLocal
                               ? EdgeInsets.only(left: 10)
                               : EdgeInsets.only(right: 10)),
-                      backgroundColor: WidgetStateProperty.all(
+                      backgroundColor: MaterialStateProperty.all(
                         selectedItems.items.isEmpty
                             ? MyTheme.accent80
                             : MyTheme.accent,
@@ -1371,7 +1371,7 @@ class _FileManagerViewState extends State<FileManagerView> {
   bool _checkDoubleClick(Entry entry) {
     final current = DateTime.now().millisecondsSinceEpoch;
     final elapsed = current - _lastClickTime;
-    _lastClickTime = current;
+    _lastClickTime = current.toDouble();
     if (_lastClickEntry == entry) {
       if (elapsed < bind.getDoubleClickTime()) {
         return true;
@@ -1605,11 +1605,11 @@ class _FileManagerViewState extends State<FileManagerView> {
     if (isWindows && path == '/') {
       breadCrumbList.add(BreadCrumbItem(
           content: TextButton(
-              child: buildWindowsThisPC(context),
-              style:
-                  ButtonStyle(minimumSize: WidgetStateProperty.all(Size(0, 0))),
-              onPressed: () =>
-                  onPressed(['/'])).marginSymmetric(horizontal: 4)));
+                  child: buildWindowsThisPC(context),
+                  style: ButtonStyle(
+                      minimumSize: MaterialStateProperty.all(Size(0, 0))),
+                  onPressed: () => onPressed(['/']))
+              .marginSymmetric(horizontal: 4)));
     } else {
       final list = PathUtil.split(path, isWindows);
       breadCrumbList.addAll(
@@ -1618,7 +1618,7 @@ class _FileManagerViewState extends State<FileManagerView> {
                 content: TextButton(
                   child: Text(e.value),
                   style: ButtonStyle(
-                    minimumSize: WidgetStateProperty.all(
+                    minimumSize: MaterialStateProperty.all(
                       Size(0, 0),
                     ),
                   ),

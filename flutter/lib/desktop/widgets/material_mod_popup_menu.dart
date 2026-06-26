@@ -278,8 +278,8 @@ class PopupMenuItem<T> extends PopupMenuEntry<T> {
   /// The cursor for a mouse pointer when it enters or is hovering over the
   /// widget.
   ///
-  /// If [mouseCursor] is a [WidgetStateProperty<MouseCursor>],
-  /// [WidgetStateProperty.resolve] is used for the following [WidgetState]s:
+  /// If [mouseCursor] is a [MaterialStateProperty<MouseCursor>],
+  /// [MaterialStateProperty.resolve] is used for the following [WidgetState]s:
   ///
   ///  * [WidgetState.hovered].
   ///  * [WidgetState.focused].
@@ -1410,7 +1410,7 @@ class PopupMenuButtonState<T> extends State<PopupMenuButton<T>> {
   }
 }
 
-// This WidgetStateProperty is passed along to the menu item's InkWell which
+// This MaterialStateProperty is passed along to the menu item's InkWell which
 // resolves the property against WidgetState.disabled, WidgetState.hovered,
 // WidgetState.focused.
 // ignore: unused_element
@@ -1418,11 +1418,12 @@ class _EffectiveMouseCursor extends WidgetStateMouseCursor {
   const _EffectiveMouseCursor(this.widgetCursor, this.themeCursor);
 
   final MouseCursor? widgetCursor;
-  final WidgetStateProperty<MouseCursor?>? themeCursor;
+  final MaterialStateProperty<MouseCursor?>? themeCursor;
 
   @override
   MouseCursor resolve(Set<WidgetState> states) {
-    return WidgetStateProperty.resolveAs<MouseCursor?>(widgetCursor, states) ??
+    return MaterialStateProperty.resolveAs<MouseCursor?>(
+            widgetCursor, states) ??
         themeCursor?.resolve(states) ??
         WidgetStateMouseCursor.clickable.resolve(states);
   }

@@ -345,8 +345,8 @@ class MyTheme {
       : EdgeInsets.only(left: dialogPadding / 3);
 
   static ScrollbarThemeData scrollbarTheme = ScrollbarThemeData(
-    thickness: WidgetStateProperty.all(6),
-    thumbColor: WidgetStateProperty.resolveWith<Color?>((states) {
+    thickness: MaterialStateProperty.all(6),
+    thumbColor: MaterialStateProperty.resolveWith<Color?>((states) {
       if (states.contains(WidgetState.dragged)) {
         return Colors.grey[900];
       } else if (states.contains(WidgetState.hovered)) {
@@ -359,7 +359,7 @@ class MyTheme {
   );
 
   static ScrollbarThemeData scrollbarThemeDark = scrollbarTheme.copyWith(
-    thumbColor: WidgetStateProperty.resolveWith<Color?>((states) {
+    thumbColor: MaterialStateProperty.resolveWith<Color?>((states) {
       if (states.contains(WidgetState.dragged)) {
         return Colors.grey[100];
       } else if (states.contains(WidgetState.hovered)) {
@@ -379,7 +379,7 @@ class MyTheme {
     appBarTheme: AppBarTheme(
       shadowColor: Colors.transparent,
     ),
-    dialogTheme: DialogThemeData(
+    dialogTheme: DialogTheme(
       elevation: 15,
       backgroundColor: Colors.white,
       shape: RoundedRectangleBorder(
@@ -451,7 +451,7 @@ class MyTheme {
     listTileTheme: listTileTheme,
     menuBarTheme: MenuBarThemeData(
         style:
-            MenuStyle(backgroundColor: WidgetStatePropertyAll(Colors.white))),
+            MenuStyle(backgroundColor: MaterialStatePropertyAll(Colors.white))),
     colorScheme: ColorScheme.light(
         primary: Colors.blue, secondary: accent, background: grayBg),
     popupMenuTheme: PopupMenuThemeData(
@@ -477,7 +477,7 @@ class MyTheme {
     appBarTheme: AppBarTheme(
       shadowColor: Colors.transparent,
     ),
-    dialogTheme: DialogThemeData(
+    dialogTheme: DialogTheme(
       elevation: 15,
       backgroundColor: Color(0xFF18191E),
       shape: RoundedRectangleBorder(
@@ -559,7 +559,7 @@ class MyTheme {
     listTileTheme: listTileTheme,
     menuBarTheme: MenuBarThemeData(
         style: MenuStyle(
-            backgroundColor: WidgetStatePropertyAll(Color(0xFF121212)))),
+            backgroundColor: MaterialStatePropertyAll(Color(0xFF121212)))),
     colorScheme: ColorScheme.dark(
       primary: Colors.blue,
       secondary: accent,

@@ -1366,7 +1366,7 @@ showSetOSPassword(
   var autoLogin =
       await bind.sessionGetOption(sessionId: sessionId, arg: 'auto-login') !=
           '';
-  controller.text = osPassword!;
+  controller.text = osPassword;
   dialogManager.show((setState, close, context) {
     closeWithCallback([dynamic]) {
       close();
@@ -2571,7 +2571,7 @@ void setSharedAbPasswordDialog(String abName, Peer peer) {
             icon: Icon(Icons.delete_outline_rounded),
             onPressed: () => change(''),
             buttonStyle: ButtonStyle(
-                backgroundColor: WidgetStatePropertyAll(Colors.red)),
+                backgroundColor: MaterialStatePropertyAll(Colors.red)),
           ),
         Obx(() => dialogButton(
               "OK",
