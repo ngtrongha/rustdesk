@@ -128,6 +128,24 @@ pub fn global_init() -> bool {
             crate::server::wayland::init();
         }
     }
+    
+    // Initialize DEFAULT_SETTINGS with hospital's hardcoded server values
+    {
+        let mut default_settings = config::DEFAULT_SETTINGS.write().unwrap();
+        if !config::RENDEZVOUS_SERVERS.is_empty() {
+            let default_server = config::RENDEZVOUS_SERVERS[0];
+            default_settings.insert("custom-rendezvous-server".to_string(), default_server.to_string());
+        }
+        default_settings.insert("key".to_string(), config::RS_PUB_KEY.to_string());
+        
+        // Set API server based on default rendezvous server
+        if !config::RENDEZVOUS_SERVERS.is_empty() {
+            let server = config::RENDEZVOUS_SERVERS[0];
+            let api_server = format!("http://{}:21114", server);
+            default_settings.insert("api-server".to_string(), api_server);
+        }
+    }
+    
     true
 }
 
