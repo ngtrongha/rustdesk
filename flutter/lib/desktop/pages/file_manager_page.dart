@@ -145,10 +145,12 @@ class _FileManagerPageState extends State<FileManagerPage>
 
   Widget willPopScope(Widget child) {
     if (isWeb) {
-      return WillPopScope(
-        onWillPop: () async {
-          clientClose(_ffi.sessionId, _ffi);
-          return false;
+      return PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, result) {
+          if (!didPop) {
+            clientClose(_ffi.sessionId, _ffi);
+          }
         },
         child: child,
       );
@@ -837,11 +839,11 @@ class _FileManagerViewState extends State<FileManagerView> {
               if (isWeb)
                 Obx(() => ElevatedButton.icon(
                       style: ButtonStyle(
-                        padding: MaterialStateProperty.all<EdgeInsetsGeometry>(
+                        padding: WidgetStateProperty.all<EdgeInsetsGeometry>(
                             isLocal
                                 ? EdgeInsets.only(left: 10)
                                 : EdgeInsets.only(right: 10)),
-                        backgroundColor: MaterialStateProperty.all(
+                        backgroundColor: WidgetStateProperty.all(
                           selectedItems.items.isEmpty
                               ? MyTheme.accent80
                               : MyTheme.accent,
@@ -896,11 +898,11 @@ class _FileManagerViewState extends State<FileManagerView> {
                     )).marginOnly(left: 16),
               Obx(() => ElevatedButton.icon(
                     style: ButtonStyle(
-                      padding: MaterialStateProperty.all<EdgeInsetsGeometry>(
+                      padding: WidgetStateProperty.all<EdgeInsetsGeometry>(
                           isLocal
                               ? EdgeInsets.only(left: 10)
                               : EdgeInsets.only(right: 10)),
-                      backgroundColor: MaterialStateProperty.all(
+                      backgroundColor: WidgetStateProperty.all(
                         selectedItems.items.isEmpty
                             ? MyTheme.accent80
                             : MyTheme.accent,
@@ -1369,7 +1371,7 @@ class _FileManagerViewState extends State<FileManagerView> {
   bool _checkDoubleClick(Entry entry) {
     final current = DateTime.now().millisecondsSinceEpoch;
     final elapsed = current - _lastClickTime;
-    _lastClickTime = current;
+    _lastClickTime = current.toDouble();
     if (_lastClickEntry == entry) {
       if (elapsed < bind.getDoubleClickTime()) {
         return true;
@@ -1603,11 +1605,11 @@ class _FileManagerViewState extends State<FileManagerView> {
     if (isWindows && path == '/') {
       breadCrumbList.add(BreadCrumbItem(
           content: TextButton(
-                  child: buildWindowsThisPC(context),
-                  style: ButtonStyle(
-                      minimumSize: MaterialStateProperty.all(Size(0, 0))),
-                  onPressed: () => onPressed(['/']))
-              .marginSymmetric(horizontal: 4)));
+              child: buildWindowsThisPC(context),
+              style:
+                  ButtonStyle(minimumSize: WidgetStateProperty.all(Size(0, 0))),
+              onPressed: () =>
+                  onPressed(['/'])).marginSymmetric(horizontal: 4)));
     } else {
       final list = PathUtil.split(path, isWindows);
       breadCrumbList.addAll(
@@ -1616,7 +1618,7 @@ class _FileManagerViewState extends State<FileManagerView> {
                 content: TextButton(
                   child: Text(e.value),
                   style: ButtonStyle(
-                    minimumSize: MaterialStateProperty.all(
+                    minimumSize: WidgetStateProperty.all(
                       Size(0, 0),
                     ),
                   ),

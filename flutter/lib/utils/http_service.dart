@@ -65,9 +65,7 @@ class HttpService {
       case HttpMethod.delete:
         response = await http.delete(url, headers: headers, body: body);
         break;
-      default:
-        throw Exception('Unsupported HTTP method');
-    }
+      }
 
     return response;
   }

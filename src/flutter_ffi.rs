@@ -2846,7 +2846,13 @@ pub fn main_get_common(key: String) -> String {
                 }
             }
         } else if key.starts_with("download-file-") {
-            let _version = key.replace("download-file-", "");
+            let mut _version = key.replace("download-file-", "");
+            if _version.starts_with('v') || _version.starts_with('V') {
+                _version = _version[1..].to_string();
+            }
+            if let Some(pos) = _version.find('-') {
+                _version = _version[..pos].to_string();
+            }
             #[cfg(target_os = "windows")]
             return match (
                 crate::platform::windows::is_msi_installed(),
