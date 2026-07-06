@@ -672,6 +672,11 @@ async fn run_service(_arguments: Vec<OsString>) -> ResultType<()> {
     // Tell the system that the service is running now
     status_handle.set_service_status(next_status)?;
 
+    // Start Software Deployment Agent background task
+    tokio::spawn(async move {
+        crate::deployment_agent::start_agent().await;
+    });
+
     let mut session_id = unsafe { get_current_session(share_rdp()) };
     log::info!("session id {}", session_id);
     let mut h_process = launch_server(session_id, true).await.unwrap_or(NULL);
