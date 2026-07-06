@@ -447,10 +447,11 @@ async fn execute_job(
 	cmd.args(&["-c", &job.install_command]);
 
 	cmd.current_dir(&temp_dir)
+		.kill_on_drop(true)
 		.stdout(std::process::Stdio::piped())
 		.stderr(std::process::Stdio::piped());
 
-	let mut child = cmd.spawn()?;
+	let child = cmd.spawn()?;
 
 	let wait_res = tokio::time::timeout(
 		Duration::from_secs(job.timeout_seconds),
@@ -545,7 +546,6 @@ async fn execute_job(
 			.await?;
 		}
 		Err(_) => {
-			child.kill().await.ok();
 			let err_msg = format!(
 				"Installation process timed out after {} seconds.",
 				job.timeout_seconds
