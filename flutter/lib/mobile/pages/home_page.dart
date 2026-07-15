@@ -180,7 +180,7 @@ class WebHomePage extends StatelessWidget {
     final link = webInitialLink;
     webInitialLink = '';
     final splitter = ["/#/", "/#", "#/", "#"];
-    var fakelink = '';
+    var target = '';
     for (var s in splitter) {
       if (link.contains(s)) {
         var list = link.split(s);
@@ -188,14 +188,25 @@ class WebHomePage extends StatelessWidget {
           return;
         }
         list.removeAt(0);
-        fakelink = "rustdesk://${list.join(s)}";
+        target = list.join(s);
         break;
       }
     }
-    if (fakelink.isEmpty) {
+
+    if (target.isEmpty) {
+      final cleanUri = Uri.tryParse(link);
+      if (cleanUri != null && cleanUri.pathSegments.isNotEmpty) {
+        target = cleanUri.pathSegments.join('/');
+        if (cleanUri.hasQuery) {
+          target = '$target?${cleanUri.query}';
+        }
+      }
+    }
+
+    if (target.isEmpty) {
       return;
     }
-    final uri = Uri.tryParse(fakelink);
+    final uri = Uri.tryParse("rustdesk://$target");
     if (uri == null) {
       return;
     }

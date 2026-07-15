@@ -18,6 +18,8 @@ import 'package:flutter_hbb/desktop/screen/desktop_terminal_screen.dart';
 import 'package:flutter_hbb/desktop/widgets/refresh_wrapper.dart';
 import 'package:flutter_hbb/models/state_model.dart';
 import 'package:flutter_hbb/utils/multi_window_manager.dart';
+import 'package:flutter_hbb/web/url_strategy_stub.dart'
+    if (dart.library.html) 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
@@ -39,6 +41,7 @@ WindowType? kWindowType;
 late List<String> kBootArgs;
 
 Future<void> main(List<String> args) async {
+  usePathUrlStrategy();
   earlyAssert();
   WidgetsFlutterBinding.ensureInitialized();
 
