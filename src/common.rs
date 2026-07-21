@@ -872,6 +872,331 @@ pub fn hostname() -> String {
     return DEVICE_NAME.lock().unwrap().clone();
 }
 
+fn is_public_inventory_ip(ip: std::net::IpAddr) -> bool {
+    match ip {
+        std::net::IpAddr::V4(ip) => {
+            let [a, b, c, _] = ip.octets();
+            !(a == 0
+                || a == 10
+                || a == 127
+                || (a == 100 && (64..=127).contains(&b))
+                || (a == 169 && b == 254)
+                || (a == 172 && (16..=31).contains(&b))
+                || (a == 192 && b == 0 && c == 0)
+                || (a == 192 && b == 0 && c == 2)
+                || (a == 192 && b == 168)
+                || (a == 198 && (b == 18 || b == 19))
+                || (a == 198 && b == 51 && c == 100)
+                || (a == 203 && b == 0 && c == 113)
+                || a >= 224)
+        }
+        std::net::IpAddr::V6(ip) => {
+            if let Some(ipv4) = ip.to_ipv4() {
+                return is_public_inventory_ip(std::net::IpAddr::V4(ipv4));
+            }
+            let segments = ip.segments();
+            !(ip.is_unspecified()
+                || ip.is_loopback()
+                || ip.is_multicast()
+                || (segments[0] & 0xfe00) == 0xfc00
+                || (segments[0] & 0xffc0) == 0xfe80
+                || (segments[0] & 0xffc0) == 0xfec0
+                || (segments[0] == 0x2001 && segments[1] == 0x0db8))
+        }
+    }
+}
+
+fn is_virtual_network_adapter(value: &str) -> bool {
+    const VIRTUAL_MARKERS: &[&str] = &[
+        "anyconnect",
+        "awdl",
+        "bluetooth",
+        "bridge",
+        "container",
+        "docker",
+        "fortinet",
+        "hamachi",
+        "hyper-v",
+        "loopback",
+        "npcap",
+        "openvpn",
+        "parallels",
+        "qemu",
+        "tap",
+        "tailscale",
+        "teredo",
+        "tun",
+        "tunnel",
+        "virtual",
+        "virtio",
+        "vbox",
+        "vethernet",
+        "vmware",
+        "vpn",
+        "utun",
+        "wireguard",
+        "wsl",
+        "xen",
+        "zerotier",
+    ];
+
+    let value = value.to_ascii_lowercase();
+    VIRTUAL_MARKERS.iter().any(|marker| value.contains(marker))
+}
+
+fn is_valid_inventory_mac(value: &str) -> bool {
+    let compact: String = value
+        .chars()
+        .filter(|character| *character != ':' && *character != '-')
+        .collect();
+    compact.len() == 12
+        && compact.chars().all(|character| character.is_ascii_hexdigit())
+        && compact != "000000000000"
+        && !compact.eq_ignore_ascii_case("ffffffffffff")
+}
+
+fn sanitize_network_info(networks: Vec<Value>) -> Vec<Value> {
+    networks
+        .into_iter()
+        .filter_map(|mut network| {
+            let object = network.as_object_mut()?;
+            let name = object.get("name")?.as_str()?.trim();
+            let description = object
+                .get("description")
+                .and_then(Value::as_str)
+                .unwrap_or_default();
+            let mac = object
+                .get("mac")
+                .and_then(Value::as_str)
+                .unwrap_or_default();
+            if name.is_empty()
+                || is_virtual_network_adapter(&format!("{name} {description}"))
+                || !is_valid_inventory_mac(mac)
+            {
+                return None;
+            }
+
+            let ips = object
+                .get("ips")
+                .and_then(Value::as_array)
+                .into_iter()
+                .flatten()
+                .filter_map(Value::as_str)
+                .filter(|value| {
+                    value
+                        .parse::<std::net::IpAddr>()
+                        .map(is_public_inventory_ip)
+                        .unwrap_or(false)
+                })
+                .map(|value| json!(value))
+                .collect();
+            object.insert("ips".to_owned(), Value::Array(ips));
+            Some(network)
+        })
+        .collect()
+}
+
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
+fn collect_default_network_info() -> Vec<Value> {
+    let mut networks = Vec::new();
+    for interface in default_net::get_interfaces() {
+        if matches!(
+            interface.if_type,
+            default_net::interface::InterfaceType::Loopback
+                | default_net::interface::InterfaceType::Tunnel
+        ) {
+            continue;
+        }
+
+        let name = interface
+            .friendly_name
+            .as_deref()
+            .unwrap_or(&interface.name)
+            .to_owned();
+        let description = interface.description.unwrap_or_default();
+        let mac = interface
+            .mac_addr
+            .map(|address| address.address())
+            .unwrap_or_default();
+        let ips = interface
+            .ipv4
+            .into_iter()
+            .map(|network| network.addr.to_string())
+            .chain(
+                interface
+                    .ipv6
+                    .into_iter()
+                    .map(|network| network.addr.to_string()),
+            )
+            .collect::<Vec<_>>();
+        networks.push(json!({
+            "name": name,
+            "description": description,
+            "mac": mac,
+            "ips": ips,
+        }));
+    }
+    sanitize_network_info(networks)
+}
+
+#[cfg(windows)]
+lazy_static::lazy_static! {
+    static ref WINDOWS_INVENTORY_CACHE: Mutex<
+        Option<(std::time::Instant, Vec<Value>, Vec<Value>)>,
+    > = Mutex::new(None);
+}
+
+#[cfg(windows)]
+fn collect_windows_inventory() -> Option<(Vec<Value>, Vec<Value>)> {
+    use std::os::windows::process::CommandExt;
+
+    if let Some((collected_at, peripherals, networks)) =
+        WINDOWS_INVENTORY_CACHE.lock().unwrap().as_ref()
+    {
+        // Sysinfo is checked every few seconds; WMI inventory is much more expensive.
+        if collected_at.elapsed() < std::time::Duration::from_secs(120) {
+            return Some((peripherals.clone(), networks.clone()));
+        }
+    }
+
+    const SCRIPT: &str = r#"
+$ErrorActionPreference = 'Stop'
+$ProgressPreference = 'SilentlyContinue'
+$OutputEncoding = [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
+
+$excludedDevicePattern = '(?i)(virtual|remote desktop|\brdp\b|vmware|virtualbox|vbox|hyper-v|rustdesk|spacedesk|parsec|miracast|wireless display|root hub|host controller|composite device|generic usb hub)'
+$allowedClasses = @('USB', 'USBDevice', 'Monitor', 'Keyboard', 'Mouse', 'Camera', 'Image', 'MEDIA', 'AudioEndpoint', 'WPD', 'Ports', 'DiskDrive', 'CDROM')
+$canResolveDeviceParents = [bool](Get-Command Get-PnpDeviceProperty -ErrorAction SilentlyContinue)
+function Test-UsbBackedDevice([string]$instanceId) {
+    if (-not $canResolveDeviceParents) {
+        return $true
+    }
+    $currentId = $instanceId
+    for ($depth = 0; $depth -lt 8; $depth++) {
+        if (($currentId -like 'USB\*') -or ($currentId -like 'USBPRINT\*')) {
+            return $true
+        }
+        if ($currentId -match '^(BTH|BTHENUM|SWD|ROOT|HTREE)\\') {
+            return $false
+        }
+        try {
+            $currentId = [string](Get-PnpDeviceProperty -InstanceId $currentId -KeyName 'DEVPKEY_Device_Parent' -ErrorAction Stop).Data
+        } catch {
+            return $false
+        }
+        if (-not $currentId) {
+            return $false
+        }
+    }
+    return $false
+}
+$pnpDevices = @(
+    Get-CimInstance Win32_PnPEntity | Where-Object {
+        $id = [string]$_.PNPDeviceID
+        $class = [string]$_.PNPClass
+        $label = "$($_.Name) $($_.Manufacturer) $id"
+        $directDevice =
+            (($id -like 'USB\VID_*') -and ($class -in $allowedClasses)) -or
+            (($id -like 'HID\*') -and ($class -in @('Keyboard', 'Mouse')) -and (Test-UsbBackedDevice $id)) -or
+            (($id -like 'DISPLAY\*') -and ($class -eq 'Monitor'))
+        ($_.Present -ne $false) -and ($_.ConfigManagerErrorCode -eq 0) -and $directDevice -and ($label -notmatch $excludedDevicePattern)
+    } | ForEach-Object {
+        $connection = ([string]$_.PNPDeviceID -split '\\', 2)[0]
+        [pscustomobject]@{
+            Name = [string]$_.Name
+            Class = [string]$_.PNPClass
+            Manufacturer = [string]$_.Manufacturer
+            Connection = $connection
+        }
+    }
+)
+
+$directPrinters = @(
+    Get-CimInstance Win32_Printer | Where-Object {
+        (-not $_.Network) -and ([string]$_.PortName -match '^(USB|DOT4|LPT|COM)\d*$') -and ("$($_.Name) $($_.DriverName)" -notmatch $excludedDevicePattern)
+    } | ForEach-Object {
+        [pscustomobject]@{
+            Name = [string]$_.Name
+            Class = 'Printer'
+            Manufacturer = [string]$_.DriverName
+            Connection = [string]$_.PortName
+        }
+    }
+)
+
+$peripherals = @($pnpDevices + $directPrinters) | Sort-Object Class, Name
+
+$excludedAdapterPattern = '(?i)(anyconnect|bluetooth|container|docker|fortinet|hamachi|hyper-v|loopback|npcap|openvpn|parallels|qemu|tailscale|tunnel|virtual|virtio|vbox|vethernet|vmware|vpn|wireguard|wsl|xen|zerotier)'
+$networks = @(
+    Get-CimInstance Win32_NetworkAdapter | Where-Object {
+        $label = "$($_.Name) $($_.Description) $($_.Manufacturer) $($_.PNPDeviceID)"
+        ($_.PhysicalAdapter -eq $true) -and $_.MACAddress -and ($label -notmatch $excludedAdapterPattern)
+    } | ForEach-Object {
+        $adapter = $_
+        $configuration = Get-CimInstance Win32_NetworkAdapterConfiguration -Filter "Index = $($adapter.Index)"
+        $name = if ($adapter.NetConnectionID) { [string]$adapter.NetConnectionID } else { [string]$adapter.Name }
+        [pscustomobject]@{
+            name = $name
+            description = [string]$adapter.Description
+            mac = [string]$adapter.MACAddress
+            ips = @($configuration.IPAddress)
+        }
+    } | Sort-Object name
+)
+
+[pscustomobject]@{
+    peripherals = @($peripherals)
+    networks = @($networks)
+} | ConvertTo-Json -Compress -Depth 5
+"#;
+
+    let mut command = std::process::Command::new("powershell");
+    command.creation_flags(0x08000000); // CREATE_NO_WINDOW
+    let output = match command
+        .args(["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", SCRIPT])
+        .output()
+    {
+        Ok(output) => output,
+        Err(error) => {
+            log::warn!("failed to start Windows inventory collection: {error}");
+            return None;
+        }
+    };
+    if !output.status.success() {
+        log::warn!(
+            "Windows inventory collection failed: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        );
+        return None;
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let inventory: Value = match serde_json::from_str(stdout.trim_start_matches('\u{feff}').trim()) {
+        Ok(inventory) => inventory,
+        Err(error) => {
+            log::warn!("failed to parse Windows inventory: {error}");
+            return None;
+        }
+    };
+    let peripherals = inventory
+        .get("peripherals")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    let networks = inventory
+        .get("networks")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    let networks = sanitize_network_info(networks);
+    *WINDOWS_INVENTORY_CACHE.lock().unwrap() = Some((
+        std::time::Instant::now(),
+        peripherals.clone(),
+        networks.clone(),
+    ));
+    Some((peripherals, networks))
+}
+
 #[inline]
 pub fn get_sysinfo() -> serde_json::Value {
     use hbb_common::sysinfo::{System, Disks};
@@ -901,27 +1226,23 @@ pub fn get_sysinfo() -> serde_json::Value {
     }
     let hostname = hostname(); // sys.hostname() return localhost on android in my test
 
-    // Collect network info using default_net
-    let mut interfaces_info = Vec::new();
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
-    {
-        for interface in default_net::get_interfaces() {
-            let name = interface.name;
-            let mac = interface.mac_addr.map(|m| m.address()).unwrap_or_default();
-            let mut ips = Vec::new();
-            for ip in interface.ipv4 {
-                ips.push(ip.addr.to_string());
-            }
-            for ip in interface.ipv6 {
-                ips.push(ip.addr.to_string());
-            }
-            interfaces_info.push(json!({
-                "name": name,
-                "mac": mac,
-                "ips": ips,
-            }));
-        }
-    }
+    #[cfg(windows)]
+    let windows_inventory = collect_windows_inventory();
+
+    // Keep only physical adapters and publicly routable addresses. A physical adapter is
+    // retained even when it has no public address (for example, when it is behind NAT).
+    #[cfg(windows)]
+    let interfaces_info = windows_inventory
+        .as_ref()
+        .map(|(_, networks)| networks.clone())
+        .unwrap_or_else(collect_default_network_info);
+    #[cfg(all(
+        not(windows),
+        not(any(target_os = "android", target_os = "ios"))
+    ))]
+    let interfaces_info = collect_default_network_info();
+    #[cfg(any(target_os = "android", target_os = "ios"))]
+    let interfaces_info: Vec<Value> = Vec::new();
     let network_info = json!(interfaces_info).to_string();
 
     // Collect disk info using Disks
@@ -939,33 +1260,12 @@ pub fn get_sysinfo() -> serde_json::Value {
             "available_gb": available,
         }));
     }
-    let mut peripherals = Vec::new();
     #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        let mut cmd = std::process::Command::new("powershell");
-        cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
-        cmd.args(&[
-            "-NoProfile",
-            "-Command",
-            "Get-CimInstance Win32_PnPEntity | Where-Object { $_.Present -and ($_.Class -in 'USB','Monitor','Keyboard','Mouse','Printer','Camera','AudioDevice','Image') } | Select-Object Name, Class, Manufacturer | ConvertTo-Json"
-        ]);
-        let output = cmd.output();
-        if let Ok(out) = output {
-            if out.status.success() {
-                let stdout = String::from_utf8_lossy(&out.stdout);
-                if let Ok(json_val) = serde_json::from_str::<serde_json::Value>(&stdout) {
-                    if let Some(arr) = json_val.as_array() {
-                        for item in arr {
-                            peripherals.push(item.clone());
-                        }
-                    } else if json_val.is_object() {
-                        peripherals.push(json_val);
-                    }
-                }
-            }
-        }
-    }
+    let peripherals = windows_inventory
+        .map(|(peripherals, _)| peripherals)
+        .unwrap_or_default();
+    #[cfg(not(windows))]
+    let mut peripherals = Vec::new();
     #[cfg(target_os = "linux")]
     {
         let output = std::process::Command::new("lsusb").output();
@@ -973,11 +1273,13 @@ pub fn get_sysinfo() -> serde_json::Value {
             if out.status.success() {
                 let stdout = String::from_utf8_lossy(&out.stdout);
                 for line in stdout.lines() {
-                    if !line.trim().is_empty() {
+                    let line = line.trim();
+                    if !line.is_empty() && !line.to_ascii_lowercase().contains("root hub") {
                         peripherals.push(json!({
-                            "Name": line.trim().to_string(),
+                            "Name": line,
                             "Class": "USB",
-                            "Manufacturer": ""
+                            "Manufacturer": "",
+                            "Connection": "USB",
                         }));
                     }
                 }
@@ -3153,5 +3455,58 @@ mod tests {
         let combined_mask = MOUSE_TYPE_DOWN | ((MOUSE_BUTTON_LEFT | MOUSE_BUTTON_RIGHT) << 3);
         assert_eq!(combined_mask & MOUSE_TYPE_MASK, MOUSE_TYPE_DOWN);
         assert_eq!(combined_mask >> 3, MOUSE_BUTTON_LEFT | MOUSE_BUTTON_RIGHT);
+    }
+
+    #[test]
+    fn test_inventory_ip_filter_keeps_only_public_addresses() {
+        for address in [
+            "10.0.0.1",
+            "100.64.0.1",
+            "127.0.0.1",
+            "169.254.1.1",
+            "172.16.0.1",
+            "192.168.1.1",
+            "198.51.100.10",
+            "203.0.113.10",
+            "::1",
+            "::ffff:192.168.1.1",
+            "fe80::1",
+            "fd00::1",
+            "2001:db8::1",
+        ] {
+            assert!(
+                !is_public_inventory_ip(address.parse().unwrap()),
+                "non-public address was retained: {address}"
+            );
+        }
+
+        for address in ["1.1.1.1", "8.8.8.8", "2606:4700:4700::1111"] {
+            assert!(
+                is_public_inventory_ip(address.parse().unwrap()),
+                "public address was removed: {address}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_network_inventory_removes_virtual_adapters_and_private_ips() {
+        let networks = sanitize_network_info(vec![
+            json!({
+                "name": "Ethernet",
+                "description": "Intel Ethernet Controller",
+                "mac": "00:11:22:33:44:55",
+                "ips": ["192.168.1.20", "1.1.1.1", "fe80::1"]
+            }),
+            json!({
+                "name": "vEthernet (WSL)",
+                "description": "Hyper-V Virtual Ethernet Adapter",
+                "mac": "00:15:5d:11:22:33",
+                "ips": ["8.8.8.8"]
+            }),
+        ]);
+
+        assert_eq!(networks.len(), 1);
+        assert_eq!(networks[0]["name"], "Ethernet");
+        assert_eq!(networks[0]["ips"], json!(["1.1.1.1"]));
     }
 }

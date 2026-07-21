@@ -55,6 +55,7 @@ struct InfoUploaded {
     last_uploaded: Option<Instant>,
     id: String,
     username: Option<String>,
+    inventory_signature: String,
 }
 
 impl Default for InfoUploaded {
@@ -65,20 +66,67 @@ impl Default for InfoUploaded {
             last_uploaded: None,
             id: "".to_owned(),
             username: None,
+            inventory_signature: String::new(),
         }
     }
 }
 
 impl InfoUploaded {
-    fn uploaded(url: String, id: String, username: String) -> Self {
+    fn uploaded(
+        url: String,
+        id: String,
+        username: String,
+        inventory_signature: String,
+    ) -> Self {
         Self {
             uploaded: true,
             url,
             last_uploaded: None,
             id,
             username: Some(username),
+            inventory_signature,
         }
     }
+}
+
+fn inventory_signature(sysinfo: &Value) -> String {
+    let hardware = sysinfo
+        .get("hardware_info")
+        .and_then(Value::as_str)
+        .and_then(|value| serde_json::from_str::<Value>(value).ok())
+        .unwrap_or(Value::Null);
+    let peripherals = hardware
+        .get("peripherals")
+        .cloned()
+        .unwrap_or_else(|| json!([]));
+    let disks = hardware
+        .get("disks")
+        .and_then(Value::as_array)
+        .map(|disks| {
+            disks
+                .iter()
+                .map(|disk| {
+                    json!({
+                        "name": disk.get("name"),
+                        "mount_point": disk.get("mount_point"),
+                        "total_gb": disk.get("total_gb"),
+                    })
+                })
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    let network = sysinfo
+        .get("network_info")
+        .and_then(Value::as_str)
+        .and_then(|value| serde_json::from_str::<Value>(value).ok())
+        .unwrap_or_else(|| json!([]));
+
+    json!({
+        "disks": disks,
+        "peripherals": peripherals,
+        "network": network,
+    })
+    .to_string()
 }
 
 #[cfg(not(any(target_os = "ios")))]
@@ -126,8 +174,16 @@ async fn start_hbbs_sync_async() {
                 let sys_username = v["username"].as_str().unwrap_or_default().to_string();
                 // Though the username comparison is only necessary on Windows,
                 // we still keep the comparison on other platforms for consistency.
-                let need_upload = (!info_uploaded.uploaded || info_uploaded.username.as_ref() != Some(&sys_username)) &&
-                    info_uploaded.last_uploaded.map(|x| x.elapsed() >= UPLOAD_SYSINFO_TIMEOUT).unwrap_or(true);
+                let current_inventory_signature = inventory_signature(&v);
+                let inventory_changed = info_uploaded.uploaded
+                    && info_uploaded.inventory_signature != current_inventory_signature;
+                let need_upload = (!info_uploaded.uploaded
+                    || info_uploaded.username.as_ref() != Some(&sys_username)
+                    || inventory_changed)
+                    && info_uploaded
+                        .last_uploaded
+                        .map(|x| x.elapsed() >= UPLOAD_SYSINFO_TIMEOUT)
+                        .unwrap_or(true);
                 if need_upload {
                     v["version"] = json!(crate::VERSION);
                     v["id"] = json!(id);
@@ -201,7 +257,12 @@ async fn start_hbbs_sync_async() {
                                 }
                             };
                             if samever {
-                                info_uploaded = InfoUploaded::uploaded(url.clone(), id.clone(), sys_username);
+                                info_uploaded = InfoUploaded::uploaded(
+                                    url.clone(),
+                                    id.clone(),
+                                    sys_username,
+                                    current_inventory_signature.clone(),
+                                );
                                 log::info!("sysinfo not changed, skip upload");
                                 continue;
                             }
@@ -210,7 +271,12 @@ async fn start_hbbs_sync_async() {
                     match crate::post_request(url.replace("heartbeat", "sysinfo"), v, "").await {
                         Ok(x)  => {
                             if x == "SYSINFO_UPDATED" {
-                                info_uploaded = InfoUploaded::uploaded(url.clone(), id.clone(), sys_username);
+                                info_uploaded = InfoUploaded::uploaded(
+                                    url.clone(),
+                                    id.clone(),
+                                    sys_username,
+                                    current_inventory_signature.clone(),
+                                );
                                 log::info!("sysinfo updated");
                                 if !hash.is_empty() {
                                     config::Status::set("sysinfo_hash", hash);
@@ -307,4 +373,49 @@ fn handle_config_options(config_options: HashMap<String, String>) {
 #[cfg(not(any(target_os = "ios")))]
 pub fn is_pro() -> bool {
     PRO.lock().unwrap().clone()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sysinfo(available_gb: u64, peripherals: Value, network: Value) -> Value {
+        json!({
+            "hardware_info": json!({
+                "disks": [{
+                    "name": "C:",
+                    "mount_point": "C:\\",
+                    "total_gb": 512,
+                    "available_gb": available_gb,
+                }],
+                "peripherals": peripherals,
+            }).to_string(),
+            "network_info": network.to_string(),
+        })
+    }
+
+    #[test]
+    fn inventory_signature_ignores_free_disk_space() {
+        let first = sysinfo(300, json!([]), json!([]));
+        let second = sysinfo(299, json!([]), json!([]));
+
+        assert_eq!(inventory_signature(&first), inventory_signature(&second));
+    }
+
+    #[test]
+    fn inventory_signature_changes_for_hotplugged_device() {
+        let first = sysinfo(300, json!([]), json!([]));
+        let second = sysinfo(
+            300,
+            json!([{
+                "Name": "USB Keyboard",
+                "Class": "Keyboard",
+                "Manufacturer": "Example",
+                "Connection": "HID",
+            }]),
+            json!([]),
+        );
+
+        assert_ne!(inventory_signature(&first), inventory_signature(&second));
+    }
 }
