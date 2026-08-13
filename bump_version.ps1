@@ -35,7 +35,26 @@ if (Test-Path $cargoPath) {
     Write-Host "[SUCCESS] Updated Cargo.toml" -ForegroundColor Green
 }
 
-# 3. Update flutter/pubspec.yaml
+# 3. Update Cargo.lock
+$cargoLockPath = Join-Path $rootDir "Cargo.lock"
+if (Test-Path $cargoLockPath) {
+    $lines = Get-Content $cargoLockPath
+    $modified = $false
+    for ($i = 0; $i -lt $lines.Length; $i++) {
+        if ($lines[$i] -eq 'name = "rustdesk"' -or $lines[$i] -eq 'name = "rustdesk-portable-packer"') {
+            if ($i + 1 -lt $lines.Length -and $lines[$i+1] -match '^version = "[^"]+"') {
+                $lines[$i+1] = "version = `"$cleanVersion`""
+                $modified = $true
+            }
+        }
+    }
+    if ($modified) {
+        $lines | Set-Content -Path $cargoLockPath
+        Write-Host "[SUCCESS] Updated Cargo.lock" -ForegroundColor Green
+    }
+}
+
+# 4. Update flutter/pubspec.yaml
 $pubspecPath = Join-Path $rootDir "flutter\pubspec.yaml"
 if (Test-Path $pubspecPath) {
     $content = Get-Content $pubspecPath -Raw
@@ -44,7 +63,7 @@ if (Test-Path $pubspecPath) {
     Write-Host "[SUCCESS] Updated flutter/pubspec.yaml" -ForegroundColor Green
 }
 
-# 4. Update libs/portable/Cargo.toml
+# 5. Update libs/portable/Cargo.toml
 $portableCargoPath = Join-Path $rootDir "libs\portable\Cargo.toml"
 if (Test-Path $portableCargoPath) {
     $content = Get-Content $portableCargoPath -Raw
