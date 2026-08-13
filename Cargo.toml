@@ -4,7 +4,7 @@ version = "1.5.2"
 authors = ["rustdesk <info@rustdesk.com>"]
 edition = "2021"
 build= "build.rs"
-description = "RustDesk Remote Desktop"
+description = "Bệnh viện Đa khoa Khánh Hòa - Hỗ trợ từ xa"
 default-run = "rustdesk"
 rust-version = "1.75"
 
