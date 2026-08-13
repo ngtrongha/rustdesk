@@ -1026,7 +1026,7 @@ pub fn main_set_option(key: String, value: String) {
         set_option(key, value.clone());
         #[cfg(target_os = "android")]
         crate::rendezvous_mediator::RendezvousMediator::restart();
-        #[cfg(any(target_os = "android", target_os = "ios", feature = "cli"))]
+        #[cfg(any(target_os = "android", target_os = "ios"))]
         crate::common::test_rendezvous_server();
     } else {
         set_option(key, value.clone());
@@ -3034,6 +3034,16 @@ pub fn main_set_common(_key: String, _value: String) {
     }
 }
 
+pub fn session_set_common(session_id: SessionID, key: String, value: String) {
+    if let Some(s) = sessions::get_session_by_session_id(&session_id) {
+        if key == "continue-insecure-connection"
+        {
+            s.continue_insecure_connection(value == "Y");
+            return;
+        }
+    }
+}
+
 pub fn session_get_common_sync(
     session_id: SessionID,
     key: String,
@@ -3122,6 +3132,16 @@ pub mod server_side {
     #[no_mangle]
     pub unsafe extern "system" fn Java_ffi_FFI_refreshScreen(_env: JNIEnv, _class: JClass) {
         crate::server::video_service::refresh()
+    }
+
+    /// Close outgoing sessions when the UI goes away but the process may not,
+    /// so a session cannot outlive the UI that is able to close it.
+    #[no_mangle]
+    pub unsafe extern "system" fn Java_ffi_FFI_closeAllSessions(_env: JNIEnv, _class: JClass) {
+        let closed = crate::flutter::sessions::close_all_sessions();
+        if closed > 0 {
+            log::info!("closed {} outgoing session(s)", closed);
+        }
     }
 
     #[no_mangle]

@@ -14,6 +14,7 @@ use crate::{
 // Empirical no-data window before exposing the restart reconnect state to the UI.
 // Restart msgbox text is kept as a legacy UI fallback; Flutter handles the type as a control event.
 const RESTART_REMOTE_DEVICE_NO_DATA_TIMEOUT: Duration = Duration::from_secs(5);
+const KCP_CLOSE_REASON_FLUSH_DELAY: Duration = Duration::from_millis(30);
 #[cfg(feature = "unix-file-copy-paste")]
 use crate::{clipboard::try_empty_clipboard_files, clipboard_file::unix_file_clip};
 #[cfg(any(
@@ -183,8 +184,20 @@ impl<T: InvokeUiSession> Remote<T> {
                     .lock()
                     .unwrap()
                     .set_connected();
+                let is_secured = peer.is_secured();
                 self.handler
-                    .set_connection_type(peer.is_secured(), direct, stream_type); // flutter -> connection_ready
+                    .set_connection_type(is_secured, direct, stream_type); // flutter -> connection_ready
+                if !is_secured
+                    && !crate::common::is_direct_ip_access(&self.handler.get_id())
+                    && !client::confirm_insecure_connection(&self.handler, &mut self.receiver).await
+                {
+                    self.send_close_reason(&mut peer, "").await;
+                    if kcp.is_some() {
+                        tokio::time::sleep(KCP_CLOSE_REASON_FLUSH_DELAY).await;
+                    }
+                    self.handle_disconnected(round);
+                    return;
+                }
                 self.handler.update_direct(Some(direct));
                 if conn_type == ConnType::DEFAULT_CONN || conn_type == ConnType::VIEW_CAMERA {
                     self.handler
@@ -338,13 +351,17 @@ impl<T: InvokeUiSession> Remote<T> {
                     self.send_close_reason(&mut peer, "kcp").await;
                     // KCP does not send messages immediately, so wait to ensure the last message is sent.
                     // 1ms works in my test, but 30ms is more reliable.
-                    tokio::time::sleep(Duration::from_millis(30)).await;
+                    tokio::time::sleep(KCP_CLOSE_REASON_FLUSH_DELAY).await;
                 }
             }
             Err(err) => {
                 self.handler.on_establish_connection_error(err.to_string());
             }
         }
+        self.handle_disconnected(round);
+    }
+
+    fn handle_disconnected(&self, round: u32) {
         // set_disconnected_ok is used to check if new connection round is started.
         let _set_disconnected_ok = self
             .handler
@@ -393,7 +410,7 @@ impl<T: InvokeUiSession> Remote<T> {
                             || !self.is_connected
                             || !(server_file_transfer_enabled && file_transfer_enabled));
                     log::debug!(
-                        "Process clipboard message from system, stop: {}, is_stopping_allowed: {}, view_only: {}, server_file_transfer_enabled: {}, file_transfer_enabled: {}",
+                        "Process clipboard message from system, view_only: {}, stop: {}, is_stopping_allowed: {}, server_file_transfer_enabled: {}, file_transfer_enabled: {}",
                         view_only, stop, is_stopping_allowed, server_file_transfer_enabled, file_transfer_enabled
                     );
                     if stop {
@@ -1336,9 +1353,13 @@ impl<T: InvokeUiSession> Remote<T> {
                     }
                 }
                 Some(message::Union::Hash(hash)) => {
-                    self.handler
+                    if !self
+                        .handler
                         .handle_hash(&self.handler.password.clone(), hash, peer)
-                        .await;
+                        .await
+                    {
+                        return false;
+                    }
                 }
                 Some(message::Union::LoginResponse(lr)) => match lr.union {
                     Some(login_response::Union::Error(err)) => {
