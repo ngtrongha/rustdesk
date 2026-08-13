@@ -1416,7 +1416,7 @@ pub async fn do_check_software_update() -> hbb_common::ResultType<()> {
     if let Some(latest_release) = releases.get(0) {
         if let Some(tag_name) = latest_release.get("tag_name").and_then(|v| v.as_str()) {
             if let Some(html_url) = latest_release.get("html_url").and_then(|v| v.as_str()) {
-                let latest_release_version = tag_name.to_string();
+                let latest_release_version = tag_name.trim_start_matches(|c| c == 'v' || c == 'V').to_string();
                 let response_url = html_url.to_string();
                 
                 if get_version_number(&latest_release_version) > get_version_number(crate::VERSION) {
