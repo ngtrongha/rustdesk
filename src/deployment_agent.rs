@@ -436,15 +436,53 @@ async fn execute_job(
 	)
 	.await?;
 
+	let target_path_str = target_path.to_string_lossy().to_string();
+	let temp_dir_str = temp_dir.to_string_lossy().to_string();
+
+	let mut formatted_cmd = job.install_command.clone();
+	formatted_cmd = formatted_cmd.replace("{FILE}", &target_path_str);
+	formatted_cmd = formatted_cmd.replace("{FILENAME}", &job.file_name);
+	formatted_cmd = formatted_cmd.replace("{DIR}", &temp_dir_str);
+
+	let ext = Path::new(&job.file_name)
+		.extension()
+		.and_then(|s| s.to_str())
+		.unwrap_or("")
+		.to_lowercase();
+
 	#[cfg(target_os = "windows")]
-	let mut cmd = tokio::process::Command::new("cmd");
-	#[cfg(target_os = "windows")]
-	cmd.args(&["/C", &job.install_command]);
+	let mut cmd = if ext == "ps1" {
+		let mut c = tokio::process::Command::new("powershell.exe");
+		let mut ps_args = vec![
+			"-NoProfile".to_string(),
+			"-ExecutionPolicy".to_string(),
+			"Bypass".to_string(),
+			"-File".to_string(),
+			target_path_str.clone(),
+		];
+		if !formatted_cmd.is_empty() && !formatted_cmd.contains("powershell") {
+			ps_args.push(formatted_cmd.clone());
+		}
+		c.args(&ps_args);
+		c
+	} else if ext == "msi" && !formatted_cmd.contains(&target_path_str) && !formatted_cmd.contains("msiexec") {
+		let mut c = tokio::process::Command::new("cmd");
+		let msi_cmd = format!("msiexec /i \"{}\" /qn /norestart {}", target_path_str, formatted_cmd);
+		c.args(&["/C", &msi_cmd]);
+		c
+	} else {
+		let mut c = tokio::process::Command::new("cmd");
+		if !formatted_cmd.contains(&target_path_str) {
+			formatted_cmd = format!("\"{}\" {}", target_path_str, formatted_cmd);
+		}
+		c.args(&["/C", &formatted_cmd]);
+		c
+	};
 
 	#[cfg(not(target_os = "windows"))]
 	let mut cmd = tokio::process::Command::new("sh");
 	#[cfg(not(target_os = "windows"))]
-	cmd.args(&["-c", &job.install_command]);
+	cmd.args(&["-c", &formatted_cmd]);
 
 	cmd.current_dir(&temp_dir)
 		.kill_on_drop(true)
