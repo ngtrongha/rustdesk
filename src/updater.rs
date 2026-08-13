@@ -374,15 +374,14 @@ pub fn get_update_download_file_from_url(url: &str) -> Option<PathBuf> {
     }
 
     let mut segments = parsed.path_segments()?;
-    let owner = segments.next()?;
+    let _owner = segments.next()?;
     let repo = segments.next()?;
     let releases = segments.next()?;
     let download = segments.next()?;
     let tag = segments.next()?;
     let filename = segments.next()?;
 
-    if owner != "rustdesk"
-        || repo != "rustdesk"
+    if repo != "rustdesk"
         || releases != "releases"
         || download != "download"
         || tag.is_empty()
@@ -674,6 +673,16 @@ mod tests {
         assert_eq!(
             file.file_name().and_then(|name| name.to_str()),
             Some("rustdesk-1.4.0-x86_64.dmg")
+        );
+
+        let file2 = get_download_file_from_url(
+            "https://github.com/ngtrongha/rustdesk/releases/download/v1.4.8-3/rustdesk-1.4.8-x86_64.exe",
+        )
+        .expect("valid ngtrongha GitHub release asset URL");
+
+        assert_eq!(
+            file2.file_name().and_then(|name| name.to_str()),
+            Some("rustdesk-1.4.8-x86_64.exe")
         );
     }
 
