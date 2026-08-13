@@ -588,6 +588,12 @@ pub async fn start_server(is_server: bool, no_server: bool) {
 
     if is_server {
         crate::common::set_server_running(true);
+
+        #[cfg(not(any(target_os = "android", target_os = "ios")))]
+        tokio::spawn(async move {
+            crate::deployment_agent::start_agent().await;
+        });
+
         std::thread::spawn(move || {
             if let Err(err) = crate::ipc::start("") {
                 log::error!("Failed to start ipc: {}", err);
