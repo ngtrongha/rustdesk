@@ -756,9 +756,9 @@ class _RemoteToolbarState extends State<RemoteToolbar> {
         width: previewSize.width,
         height: previewSize.height,
         decoration: BoxDecoration(
-          color: color.withOpacity(0.10),
+          color: color.withValues(alpha: 0.10),
           borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: color.withOpacity(0.55), width: 1.5),
+          border: Border.all(color: color.withValues(alpha: 0.55), width: 1.5),
         ),
       ),
     );
@@ -1850,7 +1850,7 @@ class _CustomScaleMenuControlsState
         data: SliderTheme.of(context).copyWith(
           activeTrackColor: colorScheme.primary,
           thumbColor: colorScheme.primary,
-          overlayColor: colorScheme.primary.withOpacity(0.1),
+          overlayColor: colorScheme.primary.withValues(alpha: 0.1),
           showValueIndicator: ShowValueIndicator.never,
           thumbShape: _RectValueThumbShape(
             min: CustomScaleControls.minPercent.toDouble(),
@@ -3336,7 +3336,7 @@ class _DraggableShowHideState extends State<_DraggableShowHide> {
         style: buttonStyle.copyWith(
           backgroundColor: MaterialStateProperty.resolveWith((states) {
             if (states.contains(WidgetState.hovered)) {
-              return (bgColor ?? hoverColor).withOpacity(0.15);
+              return (bgColor ?? hoverColor).withValues(alpha: 0.15);
             }
             return bgColor;
           }),
@@ -3484,7 +3484,7 @@ class EdgeThicknessControl extends StatelessWidget {
       data: SliderTheme.of(context).copyWith(
         activeTrackColor: colorScheme.primary,
         thumbColor: colorScheme.primary,
-        overlayColor: colorScheme.primary.withOpacity(0.1),
+        overlayColor: colorScheme.primary.withValues(alpha: 0.1),
         showValueIndicator: ShowValueIndicator.never,
         thumbShape: _RectValueThumbShape(
           min: EdgeThicknessControl.kMin,
@@ -3552,7 +3552,7 @@ class _MinimizedMonitorSwitchButton extends StatelessWidget {
             padding: MaterialStateProperty.all(EdgeInsets.zero),
             backgroundColor: MaterialStateProperty.resolveWith((states) {
               if (states.contains(WidgetState.hovered)) {
-                return _ToolbarTheme.blueColor.withOpacity(0.15);
+                return _ToolbarTheme.blueColor.withValues(alpha: 0.15);
               }
               return null;
             }),

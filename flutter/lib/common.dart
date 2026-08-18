@@ -176,7 +176,7 @@ class ColorThemeExtension extends ThemeExtension<ColorThemeExtension> {
     shadow: Colors.black,
     errorBannerBg: Color(0xFFFDEEEB),
     me: Colors.green,
-    toastBg: Colors.black.withOpacity(0.6),
+    toastBg: Colors.black.withValues(alpha: 0.6),
     toastText: Colors.white,
     divider: Colors.black38,
   );
@@ -190,7 +190,7 @@ class ColorThemeExtension extends ThemeExtension<ColorThemeExtension> {
     shadow: Colors.grey,
     errorBannerBg: Color(0xFF470F2D),
     me: Colors.greenAccent,
-    toastBg: Colors.white.withOpacity(0.6),
+    toastBg: Colors.white.withValues(alpha: 0.6),
     toastText: Colors.black,
     divider: Colors.white38,
   );
@@ -3212,7 +3212,7 @@ Widget buildRemoteBlock(
             Offstage(
                 offstage: !block.value,
                 child: Container(
-                  color: Colors.black.withOpacity(0.5),
+                  color: Colors.black.withValues(alpha: 0.5),
                 )),
         ]),
       ));
@@ -3744,7 +3744,7 @@ class ComboBox extends StatelessWidget {
 Color? disabledTextColor(BuildContext context, bool enabled) {
   return enabled
       ? null
-      : Theme.of(context).textTheme.titleLarge?.color?.withOpacity(0.6);
+      : Theme.of(context).textTheme.titleLarge?.color?.withValues(alpha: 0.6);
 }
 
 Widget loadPowered(BuildContext context) {
@@ -3927,7 +3927,7 @@ Widget buildVirtualWindowFrame(BuildContext context, Widget child) {
       ? <BoxShadow>[
           if (stateGlobal.fullscreen.isFalse || stateGlobal.isMaximized.isFalse)
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: Colors.black.withValues(alpha: 0.1),
               offset: Offset(
                   0.0,
                   stateGlobal.isFocused.isTrue

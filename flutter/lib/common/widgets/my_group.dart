@@ -196,10 +196,9 @@ class _MyGroupState extends State<MyGroup> {
     final username = user.name;
     final dn = user.displayNameOrName;
     final isDuplicate = (displayNameCount[dn] ?? 0) > 1;
-    final displayName =
-        isDuplicate && user.displayName.trim().isNotEmpty
-            ? '${user.displayName} (@$username)'
-            : dn;
+    final displayName = isDuplicate && user.displayName.trim().isNotEmpty
+        ? '${user.displayName} (@$username)'
+        : dn;
     return InkWell(onTap: () {
       isSelectedDeviceGroup.value = false;
       if (selectedAccessibleItemName.value != username) {
@@ -219,7 +218,8 @@ class _MyGroupState extends State<MyGroup> {
             border: Border(
                 bottom: BorderSide(
                     width: 0.7,
-                    color: Theme.of(context).dividerColor.withOpacity(0.1))),
+                    color:
+                        Theme.of(context).dividerColor.withValues(alpha: 0.1))),
           ),
           child: Container(
             child: Row(
@@ -287,7 +287,8 @@ class _MyGroupState extends State<MyGroup> {
             border: Border(
                 bottom: BorderSide(
                     width: 0.7,
-                    color: Theme.of(context).dividerColor.withOpacity(0.1))),
+                    color:
+                        Theme.of(context).dividerColor.withValues(alpha: 0.1))),
           ),
           child: Container(
             child: Row(

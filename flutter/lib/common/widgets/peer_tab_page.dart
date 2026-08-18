@@ -147,7 +147,7 @@ class _PeerTabPageState extends State<PeerTabPage>
           final color = selected
               ? MyTheme.tabbar(context).selectedTextColor
               : MyTheme.tabbar(context).unSelectedTextColor
-            ?..withOpacity(0.5);
+            ?..withValues(alpha: 0.5);
           final hover = false.obs;
           final deco = BoxDecoration(
               color: Theme.of(context).colorScheme.background,
@@ -723,7 +723,7 @@ class _PeerSearchBarState extends State<PeerSearchBar> {
                             .textTheme
                             .titleLarge
                             ?.color
-                            ?.withOpacity(0.5),
+                            ?.withValues(alpha: 0.5),
                         cursorHeight: 18,
                         cursorWidth: 1,
                         style: const TextStyle(fontSize: 14),

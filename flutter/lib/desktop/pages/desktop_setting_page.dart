@@ -267,7 +267,7 @@ class _DesktopSettingPageState extends State<DesktopSettingPage>
         ),
         if (videoConnBlock)
           Container(
-            color: Colors.black.withOpacity(0.5),
+            color: Colors.black.withValues(alpha: 0.5),
           )
       ]);
     });
@@ -486,7 +486,10 @@ class _GeneralState extends State<_General> {
     final incomingOnly = bind.isIncomingOnly();
     final outgoingOnly = bind.isOutgoingOnly();
     final showAutoUpdate = (isWindows && bind.mainIsInstalled()) ||
-    (isMacOS && bind.mainIsInstalled() && bind.mainIsInstalledDaemon(prompt: false) && !bind.isCustomClient());
+        (isMacOS &&
+            bind.mainIsInstalled() &&
+            bind.mainIsInstalledDaemon(prompt: false) &&
+            !bind.isCustomClient());
     final children = <Widget>[
       if (!isWeb && !incomingOnly)
         _OptionCheckBox(context, 'Confirm before closing multiple tabs',
@@ -1709,7 +1712,7 @@ class _NetworkState extends State<_Network> with AutomaticKeepAliveClientMixin {
                             .textTheme
                             .titleLarge
                             ?.color
-                            ?.withOpacity(0.7),
+                            ?.withValues(alpha: 0.7),
                       ),
                     ],
                   ),
@@ -2805,7 +2808,7 @@ class _WaylandCardState extends State<WaylandCard> {
       tip: 'clear_Wayland_screen_selection_tip',
       style: ButtonStyle(
         backgroundColor: MaterialStateProperty.all<Color>(
-            Theme.of(context).colorScheme.error.withOpacity(0.75)),
+            Theme.of(context).colorScheme.error.withValues(alpha: 0.75)),
       ),
     );
   }
@@ -2848,7 +2851,7 @@ class _WaylandCardState extends State<WaylandCard> {
         tip: 'clear-shortcuts-inhibitor-permission-tip',
         style: ButtonStyle(
           backgroundColor: MaterialStateProperty.all<Color>(
-              Theme.of(context).colorScheme.error.withOpacity(0.75)),
+              Theme.of(context).colorScheme.error.withValues(alpha: 0.75)),
         ),
       ),
     ]);
@@ -3150,7 +3153,7 @@ void changeSocks5Proxy() async {
                                     .textTheme
                                     .titleLarge
                                     ?.color
-                                    ?.withOpacity(0.5),
+                                    ?.withValues(alpha: 0.5),
                               ),
                             ),
                           ],
