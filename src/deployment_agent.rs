@@ -26,6 +26,7 @@ struct JobInfo {
 	pre_check_reg_type: Option<String>,
 	pre_check_reg_compare: Option<String>,
 	pre_check_reg_expected: Option<String>,
+	sample_path: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -449,6 +450,229 @@ async fn execute_job(
 		.and_then(|s| s.to_str())
 		.unwrap_or("")
 		.to_lowercase();
+
+	// 3.5. Patch ZIP mode handling: if file is .zip and sample_path is provided
+	let sample_path_opt = job.sample_path.as_deref().unwrap_or("").trim();
+	if ext == "zip" && !sample_path_opt.is_empty() {
+		log::info!("Patch ZIP mode activated for sample_path: {}", sample_path_opt);
+		send_log(
+			server_url,
+			job.job_id,
+			device_id,
+			uuid,
+			"system",
+			&format!("Patch mode activated. Sample path: {}", sample_path_opt),
+		)
+		.await
+		.ok();
+
+		#[cfg(target_os = "windows")]
+		{
+			let ps_script = format!(
+				r#"
+$ErrorActionPreference = 'Stop'
+$destFile = '{dest_file}'
+$samplePath = '{sample_path}'
+$jobId = {job_id}
+
+function Resolve-SoftwareDirectory {{
+    param([string]$SamplePath)
+    $sampleDrive = [System.IO.Path]::GetPathRoot($SamplePath)
+    $relPath = $SamplePath.Substring($sampleDrive.Length).TrimStart('\', '/')
+    $exeName = [System.IO.Path]::GetFileName($SamplePath)
+    $folderName = [System.IO.Path]::GetFileName([System.IO.Path]::GetDirectoryName($SamplePath))
+
+    $drives = Get-CimInstance -ClassName Win32_LogicalDisk | Where-Object {{ $_.DriveType -eq 3 }} | Select-Object -ExpandProperty DeviceID
+
+    foreach ($d in $drives) {{
+        $testFile = Join-Path "$d\" $relPath
+        if (Test-Path $testFile) {{
+            return [System.IO.Path]::GetDirectoryName($testFile)
+        }}
+    }}
+
+    try {{
+        $wsh = New-Object -ComObject WScript.Shell
+        $desktopPaths = @("$env:PUBLIC\Desktop")
+        if (Test-Path "$env:SystemDrive\Users") {{
+            Get-ChildItem "$env:SystemDrive\Users" -Directory -ErrorAction SilentlyContinue | ForEach-Object {{
+                $dp = Join-Path $_.FullName "Desktop"
+                if (Test-Path $dp) {{ $desktopPaths += $dp }}
+            }}
+        }}
+        $shortcuts = Get-ChildItem -Path $desktopPaths -Filter "*.lnk" -ErrorAction SilentlyContinue
+        foreach ($s in $shortcuts) {{
+            $target = $wsh.CreateShortcut($s.FullName).TargetPath
+            if ($target -and [System.IO.Path]::GetFileName($target) -ieq $exeName -and (Test-Path $target)) {{
+                return [System.IO.Path]::GetDirectoryName($target)
+            }}
+        }}
+    }} catch {{}}
+
+    foreach ($d in $drives) {{
+        $root = "$d\"
+        if (-not (Test-Path $root)) {{ continue }}
+        $matchingDirs = Get-ChildItem -Path $root -Filter $folderName -Directory -Recurse -Depth 3 -ErrorAction SilentlyContinue
+        foreach ($dir in $matchingDirs) {{
+            if (Test-Path (Join-Path $dir.FullName $exeName)) {{
+                return $dir.FullName
+            }}
+        }}
+    }}
+    return $null
+}}
+
+$targetDir = Resolve-SoftwareDirectory -SamplePath $samplePath
+if (-not $targetDir) {{
+    Write-Error "Software directory not found on this machine for sample path: $samplePath"
+    exit 5
+}}
+
+Write-Host "Found software directory: $targetDir"
+
+$exeName = [System.IO.Path]::GetFileName($samplePath)
+$processName = [System.IO.Path]::GetFileNameWithoutExtension($exeName)
+$runningProc = Get-Process -Name $processName -ErrorAction SilentlyContinue
+if ($runningProc) {{
+    Write-Host "Stopping process $processName..."
+    Stop-Process -Name $processName -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 2
+}}
+
+$backupDir = Join-Path $targetDir ".backup_$jobId"
+try {{
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $zipArchive = [System.IO.Compression.ZipFile]::OpenRead($destFile)
+    $filesToOverwrite = @()
+    foreach ($entry in $zipArchive.Entries) {{
+        if ($entry.FullName.EndsWith('/') -or $entry.FullName.EndsWith('\')) {{ continue }}
+        $existingFile = Join-Path $targetDir $entry.FullName
+        if (Test-Path $existingFile) {{
+            $filesToOverwrite += $entry.FullName
+        }}
+    }}
+    $zipArchive.Dispose()
+
+    if ($filesToOverwrite.Count -gt 0) {{
+        New-Item -ItemType Directory -Path $backupDir -Force | Out-Null
+        foreach ($relPath in $filesToOverwrite) {{
+            $src = Join-Path $targetDir $relPath
+            $dst = Join-Path $backupDir $relPath
+            $dstParent = Split-Path $dst -Parent
+            if (-not (Test-Path $dstParent)) {{ New-Item -ItemType Directory -Path $dstParent -Force | Out-Null }}
+            Copy-Item -Path $src -Destination $dst -Force -ErrorAction SilentlyContinue
+        }}
+        Write-Host "Backed up $($filesToOverwrite.Count) file(s) to $backupDir"
+    }}
+}} catch {{
+    Write-Host "Backup warning: $($_.Exception.Message)"
+}}
+
+[System.IO.Compression.ZipFile]::ExtractToDirectory($destFile, $targetDir, $true)
+
+$zipArchive2 = [System.IO.Compression.ZipFile]::OpenRead($destFile)
+$extracted = @()
+foreach ($entry in $zipArchive2.Entries) {{
+    if (-not ($entry.FullName.EndsWith('/') -or $entry.FullName.EndsWith('\'))) {{
+        $extracted += $entry.FullName
+    }}
+}}
+$zipArchive2.Dispose()
+
+Write-Host "Patch applied successfully to $targetDir. Updated $($extracted.Count) file(s):"
+$extracted | ForEach-Object {{ Write-Host "  - $_" }}
+"#,
+				dest_file = target_path_str.replace("'", "''"),
+				sample_path = sample_path_opt.replace("'", "''"),
+				job_id = job.job_id
+			);
+
+			let mut c = tokio::process::Command::new("powershell.exe");
+			c.args(&[
+				"-NoProfile",
+				"-NonInteractive",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-Command",
+				&ps_script,
+			]);
+			c.kill_on_drop(true)
+				.stdout(std::process::Stdio::piped())
+				.stderr(std::process::Stdio::piped());
+
+			let child = c.spawn()?;
+			let wait_res = tokio::time::timeout(
+				Duration::from_secs(job.timeout_seconds),
+				child.wait_with_output(),
+			)
+			.await;
+
+			let _ = std::fs::remove_file(&target_path);
+
+			match wait_res {
+				Ok(Ok(output)) => {
+					let exit_code = output.status.code().unwrap_or(-1);
+					let stdout_str = String::from_utf8_lossy(&output.stdout).to_string();
+					let stderr_str = String::from_utf8_lossy(&output.stderr).to_string();
+
+					if !stdout_str.is_empty() {
+						send_log(server_url, job.job_id, device_id, uuid, "stdout", &stdout_str).await.ok();
+					}
+					if !stderr_str.is_empty() {
+						send_log(server_url, job.job_id, device_id, uuid, "stderr", &stderr_str).await.ok();
+					}
+
+					if exit_code == 0 {
+						update_status(
+							server_url,
+							job.job_id,
+							device_id,
+							uuid,
+							"success",
+							0,
+							"Patch applied successfully.",
+							false,
+						)
+						.await?;
+					} else {
+						let err_msg = if !stderr_str.is_empty() {
+							stderr_str.trim().to_string()
+						} else {
+							format!("Patch application failed with exit code {}", exit_code)
+						};
+						update_status(
+							server_url,
+							job.job_id,
+							device_id,
+							uuid,
+							"failed",
+							exit_code,
+							&err_msg,
+							false,
+						)
+						.await?;
+					}
+				}
+				Ok(Err(e)) => {
+					let err_msg = format!("Patch process execution error: {:?}", e);
+					update_status(server_url, job.job_id, device_id, uuid, "failed", -1, &err_msg, false).await?;
+				}
+				Err(_) => {
+					let err_msg = format!("Patch timed out after {} seconds", job.timeout_seconds);
+					update_status(server_url, job.job_id, device_id, uuid, "failed", -1, &err_msg, false).await?;
+				}
+			}
+			return Ok(());
+		}
+
+		#[cfg(not(target_os = "windows"))]
+		{
+			let err_msg = "Patch ZIP mode is currently only supported on Windows.";
+			update_status(server_url, job.job_id, device_id, uuid, "failed", -1, err_msg, false).await?;
+			let _ = std::fs::remove_file(&target_path);
+			return Ok(());
+		}
+	}
 
 	#[cfg(target_os = "windows")]
 	let mut cmd = if ext == "ps1" {

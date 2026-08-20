@@ -132,6 +132,12 @@ fn inventory_signature(sysinfo: &Value) -> String {
 #[cfg(not(any(target_os = "ios")))]
 #[tokio::main(flavor = "current_thread")]
 async fn start_hbbs_sync_async() {
+    // Always clear cached sysinfo hash on process startup so every time RustDesk starts
+    // (e.g. on PC power on or service launch), it unconditionally sends fresh device info to server.
+    config::Status::set("sysinfo_hash", "".to_owned());
+    config::Status::set("sysinfo_ver", "".to_owned());
+
+    let mut startup_sysinfo_sent = false;
     let mut interval = crate::rustdesk_interval(tokio::time::interval_at(
         Instant::now() + TIME_CONN,
         TIME_CONN,
@@ -243,7 +249,7 @@ async fn start_hbbs_sync_async() {
                         hash = hbb_common::base64::encode(&res[..]);
                         let old_hash = config::Status::get("sysinfo_hash");
                         let ver = config::Status::get("sysinfo_ver"); // sysinfo_ver is the version of sysinfo on server's side
-                        if hash == old_hash {
+                        if startup_sysinfo_sent && !old_hash.is_empty() && hash == old_hash {
                             // When the api doesn't exist, Ok("") will be returned in test.
                             let samever = match crate::post_request(url.replace("heartbeat", "sysinfo_ver"), "".to_owned(), "").await {
                                 Ok(x)  => {
@@ -271,6 +277,7 @@ async fn start_hbbs_sync_async() {
                     match crate::post_request(url.replace("heartbeat", "sysinfo"), v, "").await {
                         Ok(x)  => {
                             if x == "SYSINFO_UPDATED" {
+                                startup_sysinfo_sent = true;
                                 info_uploaded = InfoUploaded::uploaded(
                                     url.clone(),
                                     id.clone(),
