@@ -72,4 +72,35 @@ if (Test-Path $portableCargoPath) {
     Write-Host "[SUCCESS] Updated libs/portable/Cargo.toml" -ForegroundColor Green
 }
 
+# 6. Update .github/workflows/flutter-build.yml
+$flutterBuildYml = Join-Path $rootDir ".github\workflows\flutter-build.yml"
+if (Test-Path $flutterBuildYml) {
+    $content = Get-Content $flutterBuildYml -Raw
+    $content = $content -replace '(?m)^\s*VERSION: "[^"]+"', "  VERSION: `"$cleanVersion`""
+    Set-Content -Path $flutterBuildYml -Value $content -NoNewline
+    Write-Host "[SUCCESS] Updated .github/workflows/flutter-build.yml" -ForegroundColor Green
+}
+
+# 7. Update packaging specifications (res/*.spec, res/PKGBUILD, appimage/*.yml)
+$specFiles = @(
+    "res\PKGBUILD",
+    "res\rpm.spec",
+    "res\rpm-flutter.spec",
+    "res\rpm-flutter-suse.spec",
+    "appimage\AppImageBuilder-aarch64.yml",
+    "appimage\AppImageBuilder-x86_64.yml"
+)
+foreach ($rel in $specFiles) {
+    $p = Join-Path $rootDir $rel
+    if (Test-Path $p) {
+        $content = Get-Content $p -Raw
+        $content = $content -replace '(?m)^pkgver=[0-9\.]+', "pkgver=$cleanVersion"
+        $content = $content -replace '(?m)^Version:\s+[0-9\.]+', "Version:    $cleanVersion"
+        $content = $content -replace '(?m)^\s*version:\s+[0-9\.]+', "    version: $cleanVersion"
+        Set-Content -Path $p -Value $content -NoNewline
+        Write-Host "[SUCCESS] Updated $rel" -ForegroundColor Green
+    }
+}
+
 Write-Host "`nVersion successfully bumped to $cleanVersion!" -ForegroundColor Green
+
