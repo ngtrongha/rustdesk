@@ -1,4 +1,4 @@
-import 'package:bot_toast/bot_toast.dart';
+﻿import 'package:bot_toast/bot_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hbb/common/widgets/dialog.dart';
@@ -141,7 +141,7 @@ class _PeerCardState extends State<_PeerCard>
             .textTheme
             .titleLarge
             ?.color
-            ?.withValues(alpha: 0.6));
+            ?.withOpacity(0.6));
     final showNote = _showNote(peer);
 
     return Row(
@@ -1501,7 +1501,7 @@ Widget build_more(BuildContext context, {bool invert = false}) {
                       .textTheme
                       .titleLarge
                       ?.color
-                      ?.withValues(alpha: 0.5)))));
+                      ?.withOpacity(0.5)))));
 }
 
 class TagPainter extends CustomPainter {

@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -312,7 +312,7 @@ class AutocompletePeerTileState extends State<AutocompletePeerTile> {
             .textTheme
             .titleLarge
             ?.color
-            ?.withValues(alpha: 0.6));
+            ?.withOpacity(0.6));
     final child = GestureDetector(
         onTap: () => widget.onSelect(),
         child: Padding(

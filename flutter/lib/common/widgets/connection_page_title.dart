@@ -1,4 +1,4 @@
-import 'package:auto_size_text/auto_size_text.dart';
+﻿import 'package:auto_size_text/auto_size_text.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -28,7 +28,7 @@ Widget getConnectionPageTitle(BuildContext context, bool isWeb) {
                   .textTheme
                   .titleLarge
                   ?.color
-                  ?.withValues(alpha: 0.5),
+                  ?.withOpacity(0.5),
             ),
           ),
         ],

@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 
@@ -1191,8 +1191,7 @@ class _FileManagerViewState extends State<FileManagerView> {
                                                     color: Theme.of(context)
                                                         .iconTheme
                                                         .color
-                                                        ?.withValues(
-                                                            alpha: 0.7))
+                                                        ?.withOpacity(0.7))
                                                 .paddingAll(4)
                                             : SvgPicture.asset(
                                                 entry.isFile
@@ -1555,7 +1554,7 @@ class _FileManagerViewState extends State<FileManagerView> {
                                         color: Theme.of(context)
                                             .iconTheme
                                             .color
-                                            ?.withValues(alpha: 0.7)),
+                                            ?.withOpacity(0.7)),
                                     SizedBox(width: 10),
                                     Text(
                                       entry.name,
@@ -1688,7 +1687,7 @@ class _FileManagerViewState extends State<FileManagerView> {
 }
 
 Widget buildWindowsThisPC(BuildContext context, [TextStyle? textStyle]) {
-  final color = Theme.of(context).iconTheme.color?.withValues(alpha: 0.7);
+  final color = Theme.of(context).iconTheme.color?.withOpacity(0.7);
   return Row(children: [
     Icon(Icons.computer, size: 20, color: color),
     SizedBox(width: 10),

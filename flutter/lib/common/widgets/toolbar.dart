@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -61,7 +61,7 @@ Widget waylandKeyboardScopeChip(BuildContext context, String text) {
     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
     decoration: BoxDecoration(
       borderRadius: BorderRadius.circular(999),
-      border: Border.all(color: colorScheme.primary.withValues(alpha: 0.35)),
+      border: Border.all(color: colorScheme.primary.withOpacity(0.35)),
     ),
     child: Text(
       text,

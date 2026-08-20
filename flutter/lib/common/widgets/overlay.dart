@@ -1,4 +1,4 @@
-import 'package:auto_size_text/auto_size_text.dart';
+﻿import 'package:auto_size_text/auto_size_text.dart';
 import 'package:debounce_throttle/debounce_throttle.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hbb/common.dart';
@@ -122,7 +122,7 @@ class DraggableChatWindow extends StatelessWidget {
       decoration: BoxDecoration(
           border: Border(
               bottom: BorderSide(
-                  color: Theme.of(context).hintColor.withValues(alpha: 0.4)))),
+                  color: Theme.of(context).hintColor.withOpacity(0.4)))),
       height: 38,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -204,7 +204,7 @@ class DraggableMobileActions extends StatelessWidget {
                   shadowColor: Colors.transparent,
                   child: Container(
                     decoration: BoxDecoration(
-                        color: MyTheme.accent.withValues(alpha: 0.4),
+                        color: MyTheme.accent.withOpacity(0.4),
                         borderRadius:
                             BorderRadius.all(Radius.circular(15 * scale))),
                     child: Row(

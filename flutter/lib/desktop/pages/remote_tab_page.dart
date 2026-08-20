@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'dart:async';
 import 'dart:ui' as ui;
 
@@ -597,9 +597,9 @@ class _RelativeMouseModeHint extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         margin: const EdgeInsets.only(right: 8),
         decoration: BoxDecoration(
-          color: Colors.orange.withValues(alpha: 0.2),
+          color: Colors.orange.withOpacity(0.2),
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: Colors.orange.withValues(alpha: 0.5)),
+          border: Border.all(color: Colors.orange.withOpacity(0.5)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,

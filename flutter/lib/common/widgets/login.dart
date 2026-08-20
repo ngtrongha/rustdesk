@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -539,7 +539,7 @@ class _WidgetOPState extends State<WidgetOP> {
                       final bgColor = Theme.of(context)
                           .colorScheme
                           .errorContainer
-                          .withValues(alpha: 0.3);
+                          .withOpacity(0.3);
                       return Container(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 8.0, vertical: 6.0),
@@ -954,7 +954,7 @@ Future<bool?> _openLoginDialog() async {
                       .textTheme
                       .titleLarge
                       ?.color
-                      ?.withValues(alpha: 0.55),
+                      ?.withOpacity(0.55),
             ),
             onTap: onDialogCancel,
             hoverColor: Colors.red,

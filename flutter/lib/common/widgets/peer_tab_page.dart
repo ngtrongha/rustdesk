@@ -1,4 +1,4 @@
-import 'dart:ui' as ui;
+﻿import 'dart:ui' as ui;
 
 import 'package:bot_toast/bot_toast.dart';
 import 'package:flutter/material.dart';
@@ -147,7 +147,7 @@ class _PeerTabPageState extends State<PeerTabPage>
           final color = selected
               ? MyTheme.tabbar(context).selectedTextColor
               : MyTheme.tabbar(context).unSelectedTextColor
-            ?..withValues(alpha: 0.5);
+            ?..withOpacity(0.5);
           final hover = false.obs;
           final deco = BoxDecoration(
               color: Theme.of(context).colorScheme.background,
@@ -723,7 +723,7 @@ class _PeerSearchBarState extends State<PeerSearchBar> {
                             .textTheme
                             .titleLarge
                             ?.color
-                            ?.withValues(alpha: 0.5),
+                            ?.withOpacity(0.5),
                         cursorHeight: 18,
                         cursorWidth: 1,
                         style: const TextStyle(fontSize: 14),

@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_breadcrumb/flutter_breadcrumb.dart';
@@ -483,7 +483,7 @@ class _FileManagerViewState extends State<FileManagerView> {
                             color: Theme.of(context)
                                 .iconTheme
                                 .color
-                                ?.withValues(alpha: 0.7)))
+                                ?.withOpacity(0.7)))
                     : Icon(
                         entries[index].isFile
                             ? Icons.feed_outlined

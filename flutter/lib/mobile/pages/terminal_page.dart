@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:math';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -349,7 +349,7 @@ class _TerminalPageState extends State<TerminalPage>
             width: 44, // iOS standard tap target size
             height: 44,
             decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.5), // Half transparency
+              color: Colors.black.withOpacity(0.5), // Half transparency
               shape: BoxShape.circle,
             ),
             child: Material(

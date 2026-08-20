@@ -1,4 +1,4 @@
-import 'dart:math';
+﻿import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_hbb/common/hbbs/hbbs.dart';
@@ -219,7 +219,7 @@ class _MyGroupState extends State<MyGroup> {
                 bottom: BorderSide(
                     width: 0.7,
                     color:
-                        Theme.of(context).dividerColor.withValues(alpha: 0.1))),
+                        Theme.of(context).dividerColor.withOpacity(0.1))),
           ),
           child: Container(
             child: Row(
@@ -288,7 +288,7 @@ class _MyGroupState extends State<MyGroup> {
                 bottom: BorderSide(
                     width: 0.7,
                     color:
-                        Theme.of(context).dividerColor.withValues(alpha: 0.1))),
+                        Theme.of(context).dividerColor.withOpacity(0.1))),
           ),
           child: Container(
             child: Row(
