@@ -1,4 +1,4 @@
-﻿// main window right pane
+// main window right pane
 
 import 'dart:async';
 import 'dart:convert';
@@ -331,6 +331,10 @@ class _ConnectionPageState extends State<ConnectionPage>
       {bool isFileTransfer = false,
       bool isViewCamera = false,
       bool isTerminal = false}) {
+    if (!gFFI.userModel.isLogin || !gFFI.userModel.isAdmin.value) {
+      showToast('Chỉ tài khoản Quản trị viên (Admin) mới có quyền điều khiển thiết bị khác!');
+      return;
+    }
     var id = _idController.id;
     connect(context, id,
         isFileTransfer: isFileTransfer,
@@ -351,6 +355,36 @@ class _ConnectionPageState extends State<ConnectionPage>
         child: Column(
           children: [
             getConnectionPageTitle(context, false).marginOnly(bottom: 15),
+            Obx(() {
+              final user = gFFI.userModel;
+              final isAdmin = user.isLogin && user.isAdmin.value;
+              if (!isAdmin) {
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: Colors.amber.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.lock_outline, size: 16, color: Colors.amber),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          user.isLogin
+                              ? 'Tài khoản không có quyền Admin để điều khiển máy khác'
+                              : 'Cần đăng nhập tài khoản Admin để điều khiển máy khác',
+                          style: const TextStyle(fontSize: 11, color: Colors.amber),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+              return const SizedBox.shrink();
+            }),
             Row(
               children: [
                 Expanded(

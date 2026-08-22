@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:back_button_interceptor/back_button_interceptor.dart';
@@ -2587,6 +2587,10 @@ connect(BuildContext context, String id,
     String? connToken,
     bool? isSharedPassword}) async {
   if (id == '') return;
+  if (!gFFI.userModel.isLogin || !gFFI.userModel.isAdmin.value) {
+    showToast('Chỉ tài khoản Quản trị viên (Admin) mới có quyền điều khiển thiết bị khác!');
+    return;
+  }
   if (!isDesktop || desktopType == DesktopType.main) {
     try {
       if (Get.isRegistered<IDTextEditingController>()) {
