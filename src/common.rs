@@ -873,35 +873,20 @@ pub fn hostname() -> String {
     return DEVICE_NAME.lock().unwrap().clone();
 }
 
-fn is_public_inventory_ip(ip: std::net::IpAddr) -> bool {
+fn is_valid_inventory_ip(ip: std::net::IpAddr) -> bool {
     match ip {
         std::net::IpAddr::V4(ip) => {
-            let [a, b, c, _] = ip.octets();
-            !(a == 0
-                || a == 10
-                || a == 127
-                || (a == 100 && (64..=127).contains(&b))
-                || (a == 169 && b == 254)
-                || (a == 172 && (16..=31).contains(&b))
-                || (a == 192 && b == 0 && c == 0)
-                || (a == 192 && b == 0 && c == 2)
-                || (a == 192 && b == 168)
-                || (a == 198 && (b == 18 || b == 19))
-                || (a == 198 && b == 51 && c == 100)
-                || (a == 203 && b == 0 && c == 113)
-                || a >= 224)
+            let [a, b, _, _] = ip.octets();
+            !(a == 0 || a == 127 || (a == 169 && b == 254) || a >= 224)
         }
         std::net::IpAddr::V6(ip) => {
             if let Some(ipv4) = ip.to_ipv4() {
-                return is_public_inventory_ip(std::net::IpAddr::V4(ipv4));
+                return is_valid_inventory_ip(std::net::IpAddr::V4(ipv4));
             }
             let segments = ip.segments();
             !(ip.is_unspecified()
                 || ip.is_loopback()
                 || ip.is_multicast()
-                || (segments[0] & 0xfe00) == 0xfc00
-                || (segments[0] & 0xffc0) == 0xfe80
-                || (segments[0] & 0xffc0) == 0xfec0
                 || (segments[0] == 0x2001 && segments[1] == 0x0db8))
         }
     }
@@ -986,7 +971,7 @@ fn sanitize_network_info(networks: Vec<Value>) -> Vec<Value> {
                 .filter(|value| {
                     value
                         .parse::<std::net::IpAddr>()
-                        .map(is_public_inventory_ip)
+                        .map(is_valid_inventory_ip)
                         .unwrap_or(false)
                 })
                 .map(|value| json!(value))
@@ -3569,44 +3554,51 @@ mod tests {
     }
 
     #[test]
-    fn test_inventory_ip_filter_keeps_only_public_addresses() {
+    fn test_inventory_ip_filter_keeps_valid_addresses() {
         for address in [
-            "10.0.0.1",
-            "100.64.0.1",
+            "0.0.0.0",
             "127.0.0.1",
             "169.254.1.1",
-            "172.16.0.1",
-            "192.168.1.1",
-            "198.51.100.10",
-            "203.0.113.10",
+            "224.0.0.1",
+            "240.0.0.1",
             "::1",
-            "::ffff:192.168.1.1",
-            "fe80::1",
-            "fd00::1",
             "2001:db8::1",
         ] {
             assert!(
-                !is_public_inventory_ip(address.parse().unwrap()),
-                "non-public address was retained: {address}"
+                !is_valid_inventory_ip(address.parse().unwrap()),
+                "invalid address was retained: {address}"
             );
         }
 
-        for address in ["1.1.1.1", "8.8.8.8", "2606:4700:4700::1111"] {
+        for address in [
+            "10.0.0.1",
+            "100.64.0.1",
+            "172.16.0.1",
+            "172.31.255.254",
+            "192.168.1.1",
+            "198.51.100.10",
+            "203.0.113.10",
+            "1.1.1.1",
+            "8.8.8.8",
+            "2606:4700:4700::1111",
+            "fe80::1",
+            "fd00::1",
+        ] {
             assert!(
-                is_public_inventory_ip(address.parse().unwrap()),
-                "public address was removed: {address}"
+                is_valid_inventory_ip(address.parse().unwrap()),
+                "valid address was removed: {address}"
             );
         }
     }
 
     #[test]
-    fn test_network_inventory_removes_virtual_adapters_and_private_ips() {
+    fn test_network_inventory_removes_virtual_adapters_and_retains_lan_ips() {
         let networks = sanitize_network_info(vec![
             json!({
                 "name": "Ethernet",
                 "description": "Intel Ethernet Controller",
                 "mac": "00:11:22:33:44:55",
-                "ips": ["192.168.1.20", "1.1.1.1", "fe80::1"]
+                "ips": ["192.168.1.20", "10.0.0.5", "172.16.1.10", "1.1.1.1", "127.0.0.1", "169.254.1.1"]
             }),
             json!({
                 "name": "vEthernet (WSL)",
@@ -3618,6 +3610,9 @@ mod tests {
 
         assert_eq!(networks.len(), 1);
         assert_eq!(networks[0]["name"], "Ethernet");
-        assert_eq!(networks[0]["ips"], json!(["1.1.1.1"]));
+        assert_eq!(
+            networks[0]["ips"],
+            json!(["192.168.1.20", "10.0.0.5", "172.16.1.10", "1.1.1.1"])
+        );
     }
 }
