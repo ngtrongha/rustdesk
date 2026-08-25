@@ -1,13 +1,21 @@
-use hbb_common::{config::Config, log};
+use hbb_common::{
+	bytes::Bytes,
+	config::Config,
+	log,
+	websocket::WsFramedStream,
+};
 use reqwest;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 use tokio::io::AsyncWriteExt;
 use tokio::time::sleep;
 
-#[derive(Deserialize, Clone)]
+static IS_WS_CONNECTED: AtomicBool = AtomicBool::new(false);
+
+#[derive(Deserialize, Clone, Debug)]
 struct JobInfo {
 	job_id: i32,
 	job_name: String,
@@ -55,6 +63,51 @@ struct LogForm {
 	uuid: String,
 	log_type: String,
 	content: String,
+}
+
+#[derive(Deserialize, Default)]
+struct WolJobPayload {
+	id: i64,
+	macs: Vec<String>,
+}
+
+#[derive(Deserialize, Default)]
+struct HeartbeatResponse {
+	#[serde(default)]
+	wol_jobs: Vec<WolJobPayload>,
+}
+
+#[derive(Serialize)]
+struct WolResultForm {
+	id: i64,
+	sent: usize,
+	error: String,
+}
+
+#[derive(Deserialize, Debug, Default, Clone)]
+struct WsInboundMessage {
+	#[serde(rename = "type")]
+	msg_type: String,
+	#[serde(default)]
+	id: i64,
+	#[serde(default)]
+	macs: Vec<String>,
+	#[serde(default)]
+	data: Option<JobInfo>,
+	#[serde(default)]
+	payload: Option<JobInfo>,
+}
+
+#[derive(Serialize, Default)]
+struct WsOutboundMessage {
+	#[serde(rename = "type")]
+	msg_type: String,
+	#[serde(skip_serializing_if = "Option::is_none")]
+	id: Option<i64>,
+	#[serde(skip_serializing_if = "Option::is_none")]
+	sent: Option<usize>,
+	#[serde(skip_serializing_if = "Option::is_none")]
+	error: Option<String>,
 }
 
 // Convert bytes to hex string manually without external hex crate
@@ -129,25 +182,182 @@ fn check_prerequisites(_job: &JobInfo) -> bool {
 }
 
 pub async fn start_agent() {
-	log::info!("Starting Software Deployment Agent background thread...");
+	log::info!("Starting Software Deployment & WOL Agent background thread with real-time WebSocket push...");
 
-	// 1. Start heartbeat loop
+	// 1. Start primary real-time WebSocket loop
+	tokio::spawn(async move {
+		start_ws_client_loop().await;
+	});
+
+	// 2. Start heartbeat loop (fallback / presence sync)
 	tokio::spawn(async move {
 		loop {
-			if let Err(e) = send_heartbeat().await {
-				log::error!("Agent heartbeat failed: {:?}", e);
+			if !IS_WS_CONNECTED.load(Ordering::SeqCst) {
+				if let Err(e) = send_heartbeat().await {
+					log::error!("Agent HTTP heartbeat failed: {:?}", e);
+				}
+				sleep(Duration::from_secs(60)).await;
+			} else {
+				// When WS is active, run periodic HTTP sync every 5 minutes as safety net
+				sleep(Duration::from_secs(300)).await;
+				let _ = send_heartbeat().await;
 			}
-			sleep(Duration::from_secs(60)).await;
 		}
 	});
 
-	// 2. Start jobs polling loop
+	// 3. Start jobs polling loop (fallback when WS is disconnected)
 	loop {
-		if let Err(e) = poll_jobs().await {
-			log::error!("Agent polling failed: {:?}", e);
+		if !IS_WS_CONNECTED.load(Ordering::SeqCst) {
+			if let Err(e) = poll_jobs().await {
+				log::error!("Agent HTTP polling failed: {:?}", e);
+			}
+			sleep(Duration::from_secs(30)).await;
+		} else {
+			// When WS is active, jobs are pushed instantly; run background HTTP poll every 5 minutes
+			sleep(Duration::from_secs(300)).await;
+			let _ = poll_jobs().await;
 		}
-		sleep(Duration::from_secs(30)).await;
 	}
+}
+
+async fn start_ws_client_loop() {
+	let mut retry_secs = 2u64;
+	loop {
+		let server_url = get_clean_server_url();
+		if server_url.is_empty() {
+			sleep(Duration::from_secs(10)).await;
+			continue;
+		}
+
+		let ws_url = match build_ws_url(&server_url) {
+			Ok(u) => u,
+			Err(e) => {
+				log::warn!("Failed to build Agent WS URL: {:?}", e);
+				sleep(Duration::from_secs(10)).await;
+				continue;
+			}
+		};
+
+		log::info!("Connecting Agent WebSocket to: {}", ws_url);
+
+		match WsFramedStream::new(&ws_url, None, None, 10000).await {
+			Ok(mut ws) => {
+				log::info!("Agent WebSocket connected successfully!");
+				IS_WS_CONNECTED.store(true, Ordering::SeqCst);
+				retry_secs = 2; // Reset backoff
+
+				let mut ping_interval = tokio::time::interval(Duration::from_secs(30));
+
+				loop {
+					tokio::select! {
+						_ = ping_interval.tick() => {
+							let ping_msg = serde_json::to_vec(&serde_json::json!({"type": "ping"})).unwrap_or_default();
+							if let Err(e) = ws.send_bytes(Bytes::from(ping_msg)).await {
+								log::warn!("Agent WS ping send failed: {:?}", e);
+								break;
+							}
+						}
+						next_msg = ws.next() => {
+							match next_msg {
+								Some(Ok(bytes)) => {
+									if let Ok(inbound) = serde_json::from_slice::<WsInboundMessage>(&bytes) {
+										match inbound.msg_type.as_str() {
+											"pong" => {
+												// keepalive verified
+											}
+											"wol_job" => {
+												log::info!("Received instant WS WOL job {}: {:?}", inbound.id, inbound.macs);
+												let (sent, err_msg) = match crate::wol_relay::broadcast_macs(&inbound.macs) {
+													Ok(n) => (n, String::new()),
+													Err(e) => (0, e),
+												};
+												let reply = WsOutboundMessage {
+													msg_type: "wol_result".to_string(),
+													id: Some(inbound.id),
+													sent: Some(sent),
+													error: if err_msg.is_empty() { None } else { Some(err_msg) },
+												};
+												if let Ok(reply_bytes) = serde_json::to_vec(&reply) {
+													let _ = ws.send_bytes(Bytes::from(reply_bytes)).await;
+												}
+											}
+											"deployment_job" => {
+												if let Some(job) = inbound.data.or(inbound.payload) {
+													log::info!("Received instant WS deployment job: {} (ID: {})", job.job_name, job.job_id);
+													let s_url = server_url.clone();
+													let d_id = Config::get_id();
+													let u_id = crate::ui_interface::get_uuid();
+													tokio::spawn(async move {
+														if let Err(e) = execute_job(&job, &s_url, &d_id, &u_id).await {
+															log::error!("Failed to execute WS deployment job {}: {:?}", job.job_id, e);
+														}
+													});
+												}
+											}
+											other => {
+												log::debug!("Unknown WS message type: {}", other);
+											}
+										}
+									}
+								}
+								Some(Err(e)) => {
+									log::warn!("Agent WS frame error: {:?}", e);
+									break;
+								}
+								None => {
+									log::warn!("Agent WS disconnected by server.");
+									break;
+								}
+							}
+						}
+					}
+				}
+
+				IS_WS_CONNECTED.store(false, Ordering::SeqCst);
+				log::info!("Agent WebSocket connection closed. Will reconnect...");
+			}
+			Err(e) => {
+				IS_WS_CONNECTED.store(false, Ordering::SeqCst);
+				log::warn!("Agent WebSocket connection failed: {:?}. Retrying in {}s...", e, retry_secs);
+			}
+		}
+
+		// Random jitter + exponential backoff
+		let jitter = (std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_millis() % 3000) as u64;
+		sleep(Duration::from_millis(retry_secs * 1000 + jitter)).await;
+		retry_secs = (retry_secs * 2).min(60);
+	}
+}
+
+fn build_ws_url(server_url: &str) -> Result<String, url::ParseError> {
+	let device_id = Config::get_id();
+	let uuid = crate::ui_interface::get_uuid();
+	let hostname = crate::common::hostname();
+	let os = std::env::consts::OS.to_string();
+	let ip_address = crate::wol_relay::primary_ipv4().unwrap_or_default();
+	let token = std::env::var("DEPLOYMENT_AGENT_TOKEN").unwrap_or_default();
+
+	let mut base = server_url.to_string();
+	if base.starts_with("https://") {
+		base = base.replacen("https://", "wss://", 1);
+	} else if base.starts_with("http://") {
+		base = base.replacen("http://", "ws://", 1);
+	} else {
+		base = format!("ws://{}", base);
+	}
+
+	let endpoint = format!("{}/api/agent/deployment/ws", base.trim_end_matches('/'));
+	let mut parsed = url::Url::parse(&endpoint)?;
+	parsed.query_pairs_mut()
+		.append_pair("device_id", &device_id)
+		.append_pair("uuid", &uuid)
+		.append_pair("hostname", &hostname)
+		.append_pair("os", &os)
+		.append_pair("agent_version", crate::VERSION)
+		.append_pair("ip", &ip_address)
+		.append_pair("token", &token);
+
+	Ok(parsed.to_string())
 }
 
 fn get_clean_server_url() -> String {
@@ -172,6 +382,7 @@ async fn send_heartbeat() -> hbb_common::ResultType<()> {
 	let uuid = crate::ui_interface::get_uuid();
 	let hostname = crate::common::hostname();
 	let os = std::env::consts::OS.to_string();
+	let ip_address = crate::wol_relay::primary_ipv4().unwrap_or_default();
 
 	let url = format!("{}/api/agent/deployment/heartbeat", server_url);
 	let form = HeartbeatForm {
@@ -180,7 +391,7 @@ async fn send_heartbeat() -> hbb_common::ResultType<()> {
 		agent_version: crate::VERSION.to_string(),
 		os,
 		hostname,
-		ip_address: "".to_string(), // Server will auto-detect from remote IP if empty
+		ip_address,
 	};
 
 	let client = reqwest::Client::new();
@@ -190,8 +401,33 @@ async fn send_heartbeat() -> hbb_common::ResultType<()> {
 		req = req.header("X-Agent-Token", token);
 	}
 
-	req.send().await?;
+	let resp = req.send().await?;
+	if !resp.status().is_success() {
+		return Ok(());
+	}
+	let hb_resp: HeartbeatResponse = resp.json().await?;
+	for job in hb_resp.wol_jobs {
+		log::info!("WOL job {}: broadcasting {:?}", job.id, job.macs);
+		let (sent, err_msg) = match crate::wol_relay::broadcast_macs(&job.macs) {
+			Ok(n) => (n, String::new()),
+			Err(e) => (0, e),
+		};
+		tokio::spawn(post_wol_result(server_url.clone(), job.id, sent, err_msg));
+	}
 	Ok(())
+}
+
+async fn post_wol_result(server_url: String, id: i64, sent: usize, error: String) {
+	let url = format!("{}/api/agent/deployment/wol/result", server_url);
+	let form = WolResultForm { id, sent, error };
+	let client = reqwest::Client::new();
+	let mut req = client.post(&url).json(&form);
+	if let Ok(token) = std::env::var("DEPLOYMENT_AGENT_TOKEN") {
+		req = req.header("X-Agent-Token", token);
+	}
+	if let Err(e) = req.send().await {
+		log::warn!("WOL result report failed: {:?}", e);
+	}
 }
 
 async fn poll_jobs() -> hbb_common::ResultType<()> {

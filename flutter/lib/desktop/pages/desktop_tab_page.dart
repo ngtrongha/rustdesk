@@ -11,6 +11,7 @@ import 'package:window_manager/window_manager.dart';
 // import 'package:flutter/services.dart';
 
 import '../../common/shared_state.dart';
+import '../../common/widgets/login.dart';
 
 class DesktopTabPage extends StatefulWidget {
   const DesktopTabPage({Key? key}) : super(key: key);
@@ -19,8 +20,11 @@ class DesktopTabPage extends StatefulWidget {
   State<DesktopTabPage> createState() => _DesktopTabPageState();
 
   static void onAddSetting(
-      {SettingsTabKey initialPage = SettingsTabKey.general}) {
+      {SettingsTabKey initialPage = SettingsTabKey.general}) async {
     try {
+      if (!gFFI.userModel.canAccessSettings) {
+        await loginDialog();
+      }
       DesktopTabController tabController = Get.find<DesktopTabController>();
       tabController.add(TabInfo(
           key: kTabLabelSettingPage,

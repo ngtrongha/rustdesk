@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -89,8 +89,11 @@ class DesktopSettingPage extends StatefulWidget {
   State<DesktopSettingPage> createState() =>
       _DesktopSettingPageState(initialTabkey);
 
-  static void switch2page(SettingsTabKey page) {
+  static void switch2page(SettingsTabKey page) async {
     try {
+      if (!gFFI.userModel.canAccessSettings) {
+        await loginDialog();
+      }
       int index = tabKeys.indexOf(page);
       if (index == -1) {
         return;
@@ -273,35 +276,137 @@ class _DesktopSettingPageState extends State<DesktopSettingPage>
     });
   }
 
+  Widget _buildLockedSettings(BuildContext context) {
+    final isNotLogin = !gFFI.userModel.isLogin;
+    final title = isNotLogin
+        ? translate('Settings Locked')
+        : translate('Administrator Access Required');
+    final desc = isNotLogin
+        ? translate(
+            'Please login with an Administrator account to access Settings.')
+        : translate(
+            'The current account does not have Administrator privileges. Please login with an Administrator account.');
+    final btnLabel =
+        isNotLogin ? translate('Login') : translate('Switch Account');
+
+    return Center(
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 480),
+        padding: const EdgeInsets.all(32),
+        margin: const EdgeInsets.symmetric(horizontal: 24),
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: Theme.of(context).dividerColor.withOpacity(0.2),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 16,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: (isNotLogin ? _accentColor : Colors.orange)
+                    .withOpacity(0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                isNotLogin
+                    ? Icons.lock_person_outlined
+                    : Icons.admin_panel_settings_outlined,
+                size: 48,
+                color: isNotLogin ? _accentColor : Colors.orange,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              desc,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                color: Theme.of(context)
+                    .textTheme
+                    .bodyMedium
+                    ?.color
+                    ?.withOpacity(0.7),
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              onPressed: () async {
+                await loginDialog();
+              },
+              icon: Icon(
+                  isNotLogin ? Icons.login : Icons.switch_account_outlined,
+                  size: 18),
+              label: Text(btnLabel),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.background,
-      body: _buildBlock(
-        children: <Widget>[
-          SizedBox(
-            width: _kTabWidth,
-            child: Column(
-              children: [
-                _header(context),
-                Flexible(child: _listView(tabs: _settingTabs())),
-              ],
-            ),
-          ),
-          const VerticalDivider(width: 1),
-          Expanded(
-            child: Container(
-              color: Theme.of(context).scaffoldBackgroundColor,
-              child: PageView(
-                controller: controller,
-                physics: NeverScrollableScrollPhysics(),
-                children: _children(),
+      body: Obx(() {
+        if (!gFFI.userModel.canAccessSettings) {
+          return _buildLockedSettings(context);
+        }
+        return _buildBlock(
+          children: <Widget>[
+            SizedBox(
+              width: _kTabWidth,
+              child: Column(
+                children: [
+                  _header(context),
+                  Flexible(child: _listView(tabs: _settingTabs())),
+                ],
               ),
             ),
-          )
-        ],
-      ),
+            const VerticalDivider(width: 1),
+            Expanded(
+              child: Container(
+                color: Theme.of(context).scaffoldBackgroundColor,
+                child: PageView(
+                  controller: controller,
+                  physics: NeverScrollableScrollPhysics(),
+                  children: _children(),
+                ),
+              ),
+            )
+          ],
+        );
+      }),
     );
   }
 

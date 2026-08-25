@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:io';
 import 'dart:convert';
 
@@ -25,6 +25,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:window_size/window_size.dart' as window_size;
 import '../widgets/button.dart';
+import '../../common/widgets/login.dart';
 
 class DesktopHomePage extends StatefulWidget {
   const DesktopHomePage({Key? key}) : super(key: key);
@@ -163,12 +164,14 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                         size: 22,
                       ),
                     ),
-                    onTap: () => {
-                      if (DesktopSettingPage.tabKeys.isNotEmpty)
-                        {
-                          DesktopSettingPage.switch2page(
-                              DesktopSettingPage.tabKeys[0])
-                        }
+                    onTap: () async {
+                      if (!gFFI.userModel.canAccessSettings) {
+                        await loginDialog();
+                      }
+                      if (DesktopSettingPage.tabKeys.isNotEmpty) {
+                        DesktopSettingPage.switch2page(
+                            DesktopSettingPage.tabKeys[0]);
+                      }
                     },
                     onHover: (value) => _editHover.value = value,
                   ),
@@ -259,7 +262,12 @@ class _DesktopHomePageState extends State<DesktopHomePage>
     final textColor = Theme.of(context).textTheme.titleLarge?.color;
     RxBool hover = false.obs;
     return InkWell(
-      onTap: DesktopTabPage.onAddSetting,
+      onTap: () async {
+        if (!gFFI.userModel.canAccessSettings) {
+          await loginDialog();
+        }
+        DesktopTabPage.onAddSetting();
+      },
       child: Tooltip(
         message: translate('Settings'),
         child: Obx(
@@ -374,8 +382,13 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                               ).marginOnly(right: 8, top: 4),
                             ),
                           ),
-                          onTap: () => DesktopSettingPage.switch2page(
-                              SettingsTabKey.safety),
+                          onTap: () async {
+                            if (!gFFI.userModel.canAccessSettings) {
+                              await loginDialog();
+                            }
+                            DesktopSettingPage.switch2page(
+                                SettingsTabKey.safety);
+                          },
                           onHover: (value) => editHover.value = value,
                         ),
                     ],

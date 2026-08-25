@@ -24,6 +24,7 @@ class UserModel {
   // connectivity failure; netWorkErrorWidget hides the network tip then.
   final RxBool networkErrorFromServer = false.obs;
   bool get isLogin => userName.isNotEmpty;
+  bool get canAccessSettings => isLogin && isAdmin.value;
   String get displayNameOrUserName =>
       displayName.value.trim().isEmpty ? userName.value : displayName.value;
   String get accountLabelWithHandle {
@@ -132,6 +133,8 @@ class UserModel {
       userName.value = (userInfo['name'] ?? '').toString();
       displayName.value = (userInfo['display_name'] ?? '').toString();
       avatar.value = (userInfo['avatar'] ?? '').toString();
+      isAdmin.value =
+          userInfo['is_admin'] == true || userInfo['isAdmin'] == true;
     }
   }
 
@@ -145,6 +148,7 @@ class UserModel {
     userName.value = '';
     displayName.value = '';
     avatar.value = '';
+    isAdmin.value = false;
   }
 
   _parseAndUpdateUser(UserPayload user) {

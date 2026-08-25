@@ -76,3 +76,4 @@ pub mod virtual_display_manager;
 mod kcp_stream;
 
 pub mod deployment_agent;
+pub mod wol_relay;
