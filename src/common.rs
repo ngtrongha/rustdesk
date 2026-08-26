@@ -1114,18 +1114,41 @@ $peripherals = @($pnpDevices + $directPrinters) | Sort-Object Class, Name
 
 $excludedAdapterPattern = '(?i)(anyconnect|bluetooth|container|docker|fortinet|hamachi|hyper-v|loopback|npcap|openvpn|parallels|qemu|tailscale|tunnel|virtual|virtio|vbox|vethernet|vmware|vpn|wireguard|wsl|xen|zerotier)'
 $networks = @(
-    Get-CimInstance Win32_NetworkAdapter | Where-Object {
-        $label = "$($_.Name) $($_.Description) $($_.Manufacturer) $($_.PNPDeviceID)"
-        ($_.PhysicalAdapter -eq $true) -and $_.MACAddress -and ($label -notmatch $excludedAdapterPattern)
-    } | ForEach-Object {
-        $adapter = $_
-        $configuration = Get-CimInstance Win32_NetworkAdapterConfiguration -Filter "Index = $($adapter.Index)"
-        $name = if ($adapter.NetConnectionID) { [string]$adapter.NetConnectionID } else { [string]$adapter.Name }
-        [pscustomobject]@{
-            name = $name
-            description = [string]$adapter.Description
-            mac = [string]$adapter.MACAddress
-            ips = @($configuration.IPAddress)
+    try {
+        [System.Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces() | Where-Object {
+            $_.NetworkInterfaceType -notin @(24, 53) -and
+            $_.OperationalStatus -eq 'Up' -and
+            (($_.Name + ' ' + $_.Description) -notmatch $excludedAdapterPattern)
+        } | ForEach-Object {
+            $rawMac = $_.GetPhysicalAddress().GetAddressBytes()
+            $mac = if ($rawMac.Length -eq 6) { ($rawMac | ForEach-Object { $_.ToString("X2") }) -join ":" } else { "" }
+            $ips = @($_.GetIPProperties().UnicastAddresses | Where-Object {
+                $addr = $_.Address.IPAddressToString
+                $addr -notmatch '^(127\.|169\.254\.|fe80:)' -and $_.Address.AddressFamily -eq 'InterNetwork'
+            } | ForEach-Object { $_.Address.IPAddressToString })
+            [pscustomobject]@{
+                name = [string]$_.Name
+                description = [string]$_.Description
+                mac = $mac
+                ips = @($ips)
+            }
+        } | Where-Object { $_.ips.Count -gt 0 -or ($_.mac -and $_.mac -ne '00:00:00:00:00:00') }
+    } catch {
+        Get-CimInstance Win32_NetworkAdapter | Where-Object {
+            $label = "$($_.Name) $($_.Description) $($_.Manufacturer) $($_.PNPDeviceID)"
+            ($_.PhysicalAdapter -eq $true) -and $_.MACAddress -and ($label -notmatch $excludedAdapterPattern)
+        } | ForEach-Object {
+            $adapter = $_
+            $configuration = Get-CimInstance Win32_NetworkAdapterConfiguration -Filter "Index = $($adapter.Index)" -ErrorAction SilentlyContinue
+            $name = if ($adapter.NetConnectionID) { [string]$adapter.NetConnectionID } else { [string]$adapter.Name }
+            $ipList = @()
+            if ($configuration -and $configuration.IPAddress) { $ipList = @($configuration.IPAddress) }
+            [pscustomobject]@{
+                name = $name
+                description = [string]$adapter.Description
+                mac = [string]$adapter.MACAddress
+                ips = $ipList
+            }
         }
     } | Sort-Object name
 )
