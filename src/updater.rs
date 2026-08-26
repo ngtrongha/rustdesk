@@ -181,7 +181,9 @@ fn check_update(manually: bool) -> ResultType<()> {
     }
     #[cfg(target_os = "windows")]
     let update_msi = crate::platform::is_msi_installed()? && !crate::is_custom_client();
-    if !(manually || config::Config::get_bool_option(config::keys::OPTION_ALLOW_AUTO_UPDATE)) {
+    let allow_auto_update =
+        config::Config::get_option(config::keys::OPTION_ALLOW_AUTO_UPDATE) != "N";
+    if !(manually || allow_auto_update) {
         return Ok(());
     }
     if do_check_software_update().is_err() {
@@ -540,7 +542,7 @@ pub fn start_auto_update_macos() {
 pub fn check_update_as_root() -> ResultType<bool> {
     let _update_lock = acquire_mac_update_lock()?;
     // Allow-auto-update setting
-    if !config::Config::get_bool_option(config::keys::OPTION_ALLOW_AUTO_UPDATE) {
+    if config::Config::get_option(config::keys::OPTION_ALLOW_AUTO_UPDATE) == "N" {
         log::info!("[root-update] Auto update is disabled, skipping.");
         return Ok(false);
     }
