@@ -641,7 +641,7 @@ class _DesktopTabState extends State<DesktopTab>
                         Offstage(
                             offstage: !showTitle,
                             child: const Text(
-                              "Bệnh viện Đa Khoa Khánh Hòa",
+                              "BVĐKKH - Remote",
                               style: TextStyle(fontSize: 13),
                             ).marginOnly(left: 2))
                       ]).marginOnly(

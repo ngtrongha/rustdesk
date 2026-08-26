@@ -3039,7 +3039,7 @@ int versionCmp(String v1, String v2) {
 String getWindowName({WindowType? overrideType}) {
   var name = bind.mainGetAppNameSync();
   if (name == "RustDesk") {
-    name = "Bệnh viện Đa Khoa Khánh Hòa";
+    name = "BVĐKKH - Remote";
   }
   switch (overrideType ?? kWindowType) {
     case WindowType.Main:
