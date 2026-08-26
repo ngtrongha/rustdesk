@@ -1621,7 +1621,9 @@ String translate(String name) {
 // sciter: Does not have the function, but it should be kept the same.
 bool option2bool(String option, String value) {
   bool res;
-  if (option.startsWith("enable-")) {
+  if (option.startsWith("enable-") ||
+      option == kOptionAllowAutoUpdate ||
+      option == kOptionAllowRemoteConfigModification) {
     res = value != "N";
   } else if (option.startsWith("allow-") ||
       option == kOptionStopService ||
@@ -1637,7 +1639,9 @@ bool option2bool(String option, String value) {
 
 String bool2option(String option, bool b) {
   String res;
-  if (option.startsWith('enable-') &&
+  if ((option.startsWith('enable-') ||
+          option == kOptionAllowAutoUpdate ||
+          option == kOptionAllowRemoteConfigModification) &&
       option != kOptionEnableUdpPunch &&
       option != kOptionEnableIpv6Punch) {
     res = b ? defaultOptionYes : 'N';

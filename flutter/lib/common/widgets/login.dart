@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -994,6 +994,9 @@ Future<bool?> _openLoginDialog() async {
   }).whenComplete(oidcAuth.close);
 
   if (res != null) {
+    if (res == true) {
+      gFFI.userModel.refreshCurrentUser();
+    }
     await UserModel.updateOtherModels();
   }
 
@@ -1105,6 +1108,7 @@ Future<bool?> verificationCodeDialog(
   // For verification code, desktop update other models in login dialog, mobile need to close login dialog first,
   // otherwise the soft keyboard will jump out on each key press, so mobile update in verification code dialog.
   if (isMobile && res == true) {
+    gFFI.userModel.refreshCurrentUser();
     await UserModel.updateOtherModels();
   }
 
