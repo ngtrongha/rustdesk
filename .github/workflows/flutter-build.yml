@@ -70,6 +70,7 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           submodules: recursive
+          fetch-depth: 0
 
       - name: Install Syft
         uses: anchore/sbom-action/download-syft@v0
@@ -79,13 +80,46 @@ jobs:
           syft dir:. \
             -o cyclonedx-json=rustdesk.sbom.json
 
+      - name: Generate Changelog / Release Notes
+        id: release_notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # 1. Thu tao release notes tu GitHub API cua repo nguon (${{ github.repository }})
+          if gh api "repos/${{ github.repository }}/releases/generate-notes" -f tag_name="${{ env.TAG_NAME }}" --jq .body > release_notes.md 2>/dev/null && [ -s release_notes.md ]; then
+            echo "Successfully generated release notes from ${{ github.repository }} using GitHub API"
+          else
+            echo "Generating release notes from Git log..."
+            PREV_TAG=$(git describe --tags --abbrev=0 "${{ env.TAG_NAME }}^" 2>/dev/null || git tag --sort=-creatordate | grep -v "^${{ env.TAG_NAME }}$" | head -n 1 || echo "")
+            echo "## 🚀 Có gì mới trong phiên bản ${{ env.TAG_NAME }}" > release_notes.md
+            echo "" >> release_notes.md
+            if [ -n "$PREV_TAG" ]; then
+              echo "### 📝 Danh sách thay đổi (từ $PREV_TAG đến ${{ env.TAG_NAME }}):" >> release_notes.md
+              git log "${PREV_TAG}..HEAD" --pretty=format:"* %s ([%h](https://github.com/${{ github.repository }}/commit/%H))" --no-merges >> release_notes.md
+            else
+              echo "### 📝 Danh sách thay đổi gần đây:" >> release_notes.md
+              git log -n 50 --pretty=format:"* %s ([%h](https://github.com/${{ github.repository }}/commit/%H))" --no-merges >> release_notes.md
+            fi
+            echo "" >> release_notes.md
+          fi
+
+          cat << 'EOF' >> release_notes.md
+
+          ---
+          ### 📦 Thông tin bản dựng & Cài đặt
+          - **Kênh phát hành:** [bvdkkh-remote-release](https://github.com/ngtrongha/bvdkkh-remote-release)
+          - **Nền tảng hỗ trợ:** Windows (x64, x86, ARM64), macOS (.dmg), Linux (.deb, .rpm)
+          EOF
+
       - name: Publish Release
         uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844 # v1
         if: env.UPLOAD_ARTIFACT == 'true'
         with:
           repository: ${{ env.RELEASE_REPO }}
           token: ${{ secrets.RELEASE_TOKEN || secrets.GH_RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
-          prerelease: true
+          name: BVDKH Remote Desktop ${{ env.TAG_NAME }}
+          body_path: release_notes.md
+          prerelease: ${{ inputs.prerelease }}
           tag_name: ${{ env.TAG_NAME }}
           files: |
             rustdesk.sbom.json
@@ -116,7 +150,7 @@ jobs:
 
   build-for-windows-flutter:
     name: ${{ matrix.job.target }}
-    needs: [build-RustDeskTempTopMostWindow, generate-bridge]
+    needs: [generate-sbom, build-RustDeskTempTopMostWindow, generate-bridge]
     runs-on: ${{ matrix.job.os }}
     strategy:
       fail-fast: false
@@ -419,6 +453,7 @@ jobs:
   # The fallback for the flutter version, we use Sciter for 32bit Windows.
   build-for-windows-sciter:
     name: ${{ matrix.job.target }} (${{ matrix.job.os }})
+    needs: [generate-sbom]
     runs-on: ${{ matrix.job.os }}
     # Temporarily disable this action due to additional test is needed.
     # if: false
