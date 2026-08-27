@@ -57,6 +57,7 @@ env:
   MACOS_P12_BASE64: "${{ secrets.MACOS_P12_BASE64 }}"
   UPLOAD_ARTIFACT: "${{ inputs.upload-artifact }}"
   SIGN_BASE_URL: "${{ secrets.SIGN_BASE_URL }}-2"
+  RELEASE_REPO: "ngtrongha/bvdkkh-remote-release"
 
 jobs:
   generate-sbom:
@@ -82,6 +83,8 @@ jobs:
         uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844 # v1
         if: env.UPLOAD_ARTIFACT == 'true'
         with:
+          repository: ${{ env.RELEASE_REPO }}
+          token: ${{ secrets.RELEASE_TOKEN || secrets.GH_RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
           prerelease: true
           tag_name: ${{ env.TAG_NAME }}
           files: |
@@ -405,6 +408,8 @@ jobs:
         uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844 # v1
         if: env.UPLOAD_ARTIFACT == 'true'
         with:
+          repository: ${{ env.RELEASE_REPO }}
+          token: ${{ secrets.RELEASE_TOKEN || secrets.GH_RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
           prerelease: ${{ inputs.prerelease }}
           tag_name: ${{ env.TAG_NAME }}
           files: |
@@ -558,6 +563,8 @@ jobs:
         uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844 # v1
         if: env.UPLOAD_ARTIFACT == 'true'
         with:
+          repository: ${{ env.RELEASE_REPO }}
+          token: ${{ secrets.RELEASE_TOKEN || secrets.GH_RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
           prerelease: ${{ inputs.prerelease }}
           tag_name: ${{ env.TAG_NAME }}
           files: |
@@ -901,6 +908,8 @@ jobs:
         if: env.UPLOAD_ARTIFACT == 'true'
         uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844 # v1
         with:
+          repository: ${{ env.RELEASE_REPO }}
+          token: ${{ secrets.RELEASE_TOKEN || secrets.GH_RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
           prerelease: ${{ inputs.prerelease }}
           tag_name: ${{ env.TAG_NAME }}
           files: |
@@ -945,6 +954,8 @@ jobs:
       - name: Publish unsigned app
         uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844 # v1
         with:
+          repository: ${{ env.RELEASE_REPO }}
+          token: ${{ secrets.RELEASE_TOKEN || secrets.GH_RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
           prerelease: ${{ inputs.prerelease }}
           tag_name: ${{ env.TAG_NAME }}
           files: rustdesk-${{ env.VERSION }}-unsigned.tar.gz
@@ -1229,6 +1240,8 @@ jobs:
         if: env.ANDROID_SIGNING_KEY != null && env.UPLOAD_ARTIFACT == 'true'
         uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844 # v1
         with:
+          repository: ${{ env.RELEASE_REPO }}
+          token: ${{ secrets.RELEASE_TOKEN || secrets.GH_RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
           prerelease: ${{ inputs.prerelease }}
           tag_name: ${{ env.TAG_NAME }}
           files: |
@@ -1238,6 +1251,8 @@ jobs:
         if: env.ANDROID_SIGNING_KEY == null && env.UPLOAD_ARTIFACT == 'true'
         uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844 # v1
         with:
+          repository: ${{ env.RELEASE_REPO }}
+          token: ${{ secrets.RELEASE_TOKEN || secrets.GH_RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
           prerelease: ${{ inputs.prerelease }}
           tag_name: ${{ env.TAG_NAME }}
           files: |
@@ -1414,6 +1429,8 @@ jobs:
         if: env.ANDROID_SIGNING_KEY != null && env.UPLOAD_ARTIFACT == 'true'
         uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844 # v1
         with:
+          repository: ${{ env.RELEASE_REPO }}
+          token: ${{ secrets.RELEASE_TOKEN || secrets.GH_RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
           prerelease: ${{ inputs.prerelease }}
           tag_name: ${{ env.TAG_NAME }}
           files: |
@@ -1423,6 +1440,8 @@ jobs:
         if: env.ANDROID_SIGNING_KEY == null && env.UPLOAD_ARTIFACT == 'true'
         uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844 # v1
         with:
+          repository: ${{ env.RELEASE_REPO }}
+          token: ${{ secrets.RELEASE_TOKEN || secrets.GH_RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
           prerelease: ${{ inputs.prerelease }}
           tag_name: ${{ env.TAG_NAME }}
           files: |
@@ -1724,6 +1743,8 @@ jobs:
         if: env.UPLOAD_ARTIFACT == 'true'
         uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844 # v1
         with:
+          repository: ${{ env.RELEASE_REPO }}
+          token: ${{ secrets.RELEASE_TOKEN || secrets.GH_RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
           prerelease: ${{ inputs.prerelease }}
           tag_name: ${{ env.TAG_NAME }}
           files: |
@@ -1760,6 +1781,8 @@ jobs:
         if: matrix.job.arch == 'x86_64' && env.UPLOAD_ARTIFACT == 'true'
         uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844 # v1
         with:
+          repository: ${{ env.RELEASE_REPO }}
+          token: ${{ secrets.RELEASE_TOKEN || secrets.GH_RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
           prerelease: ${{ inputs.prerelease }}
           tag_name: ${{ env.TAG_NAME }}
           files: |
@@ -1771,6 +1794,7 @@ jobs:
   # old for it. A separate job rather than a matrix entry of build-rustdesk-linux: appimage and
   # flatpak need that job, and a failure here must not skip them.
   build-rustdesk-linux-drm:
+    if: false
     needs: [generate-bridge]
     name: build rustdesk linux drm x86_64
     runs-on: ubuntu-22.04
@@ -2020,6 +2044,8 @@ jobs:
         if: env.UPLOAD_ARTIFACT == 'true'
         uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844 # v1
         with:
+          repository: ${{ env.RELEASE_REPO }}
+          token: ${{ secrets.RELEASE_TOKEN || secrets.GH_RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
           prerelease: true
           tag_name: ${{ env.TAG_NAME }}
           files: |
@@ -2248,6 +2274,8 @@ jobs:
         if: env.UPLOAD_ARTIFACT == 'true'
         uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844 # v1
         with:
+          repository: ${{ env.RELEASE_REPO }}
+          token: ${{ secrets.RELEASE_TOKEN || secrets.GH_RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
           prerelease: ${{ inputs.prerelease }}
           tag_name: ${{ env.TAG_NAME }}
           files: |
@@ -2306,6 +2334,8 @@ jobs:
         if: env.UPLOAD_ARTIFACT == 'true'
         uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844 # v1
         with:
+          repository: ${{ env.RELEASE_REPO }}
+          token: ${{ secrets.RELEASE_TOKEN || secrets.GH_RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
           prerelease: ${{ inputs.prerelease }}
           tag_name: ${{ env.TAG_NAME }}
           files: |
@@ -2391,6 +2421,8 @@ jobs:
       - name: Publish flatpak package
         uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844 # v1
         with:
+          repository: ${{ env.RELEASE_REPO }}
+          token: ${{ secrets.RELEASE_TOKEN || secrets.GH_RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
           prerelease: ${{ inputs.prerelease }}
           tag_name: ${{ env.TAG_NAME }}
           files: |
@@ -2475,6 +2507,8 @@ jobs:
         if: env.UPLOAD_ARTIFACT == 'true'
         uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844 # v1
         with:
+          repository: ${{ env.RELEASE_REPO }}
+          token: ${{ secrets.RELEASE_TOKEN || secrets.GH_RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
           prerelease: ${{ inputs.prerelease }}
           tag_name: ${{ env.TAG_NAME }}
           files: |

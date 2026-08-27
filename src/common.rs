@@ -1387,10 +1387,10 @@ pub fn check_software_update() {
 }
 
 // No need to check `danger_accept_invalid_cert` for now.
-// Because the url is always `https://api.github.com/repos/ngtrongha/rustdesk/releases`.
+// Because the url is always `https://api.github.com/repos/ngtrongha/bvdkkh-remote-release/releases`.
 #[tokio::main(flavor = "current_thread")]
 pub async fn do_check_software_update() -> hbb_common::ResultType<()> {
-    let url = "https://api.github.com/repos/ngtrongha/rustdesk/releases";
+    let url = "https://api.github.com/repos/ngtrongha/bvdkkh-remote-release/releases";
     let proxy_conf = Config::get_socks();
     let tls_url = get_url_for_tls(&url, &proxy_conf);
     let tls_type = get_cached_tls_type(tls_url);
