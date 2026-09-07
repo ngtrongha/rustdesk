@@ -596,13 +596,44 @@ async fn execute_job(
 		let _ = std::fs::remove_file(&target_path);
 	}
 
+	let clean_url = job
+		.download_url
+		.replace("http://://", "http://")
+		.replace("https://://", "https://")
+		.replace("://://", "://");
+
+	let final_url = if clean_url.starts_with('/') {
+		format!("{}{}", server_url.trim_end_matches('/'), clean_url)
+	} else {
+		clean_url
+	};
+
 	let client = reqwest::Client::new();
-	let mut req = client.get(&job.download_url);
+	let mut req = client.get(&final_url);
 	if let Ok(token) = std::env::var("DEPLOYMENT_AGENT_TOKEN") {
 		req = req.header("X-Agent-Token", token);
 	}
 
-	let mut download_resp = req.send().await?;
+	let download_resp_res = req.send().await;
+	let mut download_resp = match download_resp_res {
+		Ok(resp) => resp,
+		Err(e) => {
+			let err_msg = format!("Download request error from {}: {:?}", final_url, e);
+			log::error!("{}", err_msg);
+			let _ = update_status(
+				server_url,
+				job.job_id,
+				device_id,
+				uuid,
+				"failed",
+				-1,
+				&err_msg,
+				false,
+			)
+			.await;
+			return Ok(());
+		}
+	};
 	if !download_resp.status().is_success() {
 		let err_msg = format!("Download failed with status: {}", download_resp.status());
 		update_status(
