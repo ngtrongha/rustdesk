@@ -655,6 +655,7 @@ async fn execute_job(
 		file.write_all(&chunk).await?;
 	}
 	file.flush().await?;
+	drop(file);
 
 	// 3. Verify Checksum
 	update_status(
@@ -669,7 +670,26 @@ async fn execute_job(
 	)
 	.await?;
 
-	let computed_sha = compute_sha256(&target_path).await?;
+	let computed_sha = match compute_sha256(&target_path).await {
+		Ok(s) => s,
+		Err(e) => {
+			let msg = format!("Failed to compute SHA256: {:?}", e);
+			log::error!("{}", msg);
+			update_status(
+				server_url,
+				job.job_id,
+				device_id,
+				uuid,
+				"failed",
+				-1,
+				&msg,
+				false,
+			)
+			.await?;
+			let _ = std::fs::remove_file(&target_path);
+			return Ok(());
+		}
+	};
 	if computed_sha != job.sha256 {
 		let msg = format!(
 			"SHA256 verification failed. Expected {}, got {}",
