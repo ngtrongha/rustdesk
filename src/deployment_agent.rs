@@ -6,14 +6,26 @@ use hbb_common::{
 };
 use reqwest;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use once_cell::sync::Lazy;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Mutex;
 use std::time::Duration;
 use tokio::io::AsyncWriteExt;
 use tokio::time::sleep;
 
 static IS_WS_CONNECTED: AtomicBool = AtomicBool::new(false);
+static RUNNING_JOB_IDS: Lazy<Mutex<HashSet<i32>>> = Lazy::new(|| Mutex::new(HashSet::new()));
+
+struct JobIdGuard(i32);
+impl Drop for JobIdGuard {
+	fn drop(&mut self) {
+		if let Ok(mut set) = RUNNING_JOB_IDS.lock() {
+			set.remove(&self.0);
+		}
+	}
+}
 
 #[derive(Deserialize, Clone, Debug)]
 struct JobInfo {
@@ -556,6 +568,16 @@ async fn execute_job(
 	device_id: &str,
 	uuid: &str,
 ) -> hbb_common::ResultType<()> {
+	// Deduplicate concurrent job execution on the same agent
+	{
+		let mut running = RUNNING_JOB_IDS.lock().unwrap();
+		if !running.insert(job.job_id) {
+			log::warn!("Job {} is already running on this agent. Skipping duplicate trigger.", job.job_id);
+			return Ok(());
+		}
+	}
+	let _guard = JobIdGuard(job.job_id);
+
 	// 1. Dynamic prerequisite check
 	if check_prerequisites(job) {
 		log::info!(
@@ -962,6 +984,10 @@ $extracted | ForEach-Object {{ Write-Host "  - $_" }}
 	}
 
 	#[cfg(target_os = "windows")]
+	// Wait a moment for file handles and antivirus real-time scan to finish releasing lock
+	tokio::time::sleep(Duration::from_millis(600)).await;
+
+	#[cfg(target_os = "windows")]
 	let mut cmd = if ext == "ps1" {
 		let mut c = tokio::process::Command::new("powershell.exe");
 		let mut ps_args = vec![
@@ -980,6 +1006,14 @@ $extracted | ForEach-Object {{ Write-Host "  - $_" }}
 		let mut c = tokio::process::Command::new("cmd");
 		let msi_cmd = format!("msiexec /i \"{}\" /qn /norestart {}", target_path_str, formatted_cmd);
 		c.args(&["/C", &msi_cmd]);
+		c
+	} else if ext == "bat" || ext == "cmd" {
+		let mut c = tokio::process::Command::new("cmd.exe");
+		if !formatted_cmd.is_empty() && formatted_cmd != job.file_name && formatted_cmd != target_path_str {
+			c.args(&["/C", &formatted_cmd]);
+		} else {
+			c.args(&["/C", &target_path_str]);
+		}
 		c
 	} else {
 		let mut c = tokio::process::Command::new("cmd");
