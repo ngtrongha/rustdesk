@@ -6,8 +6,7 @@ use hbb_common::{
 };
 use reqwest;
 use serde::{Deserialize, Serialize};
-use once_cell::sync::Lazy;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
@@ -16,7 +15,9 @@ use tokio::io::AsyncWriteExt;
 use tokio::time::sleep;
 
 static IS_WS_CONNECTED: AtomicBool = AtomicBool::new(false);
-static RUNNING_JOB_IDS: Lazy<Mutex<HashSet<i32>>> = Lazy::new(|| Mutex::new(HashSet::new()));
+lazy_static::lazy_static! {
+	static ref RUNNING_JOB_IDS: Mutex<HashSet<i32>> = Mutex::new(HashSet::new());
+}
 
 struct JobIdGuard(i32);
 impl Drop for JobIdGuard {
