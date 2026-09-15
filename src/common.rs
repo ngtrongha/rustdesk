@@ -923,14 +923,48 @@ pub fn username() -> String {
     return DEVICE_NAME.lock().unwrap().clone();
 }
 
+lazy_static::lazy_static! {
+    static ref CACHED_HOSTNAME: std::sync::RwLock<String> = std::sync::RwLock::new(String::new());
+}
+
 // Exactly the implementation of "whoami::hostname()".
-// This wrapper is to suppress warnings.
+// Enhanced with %COMPUTERNAME% on Windows and in-memory cache to prevent
+// falling back to "localhost" during shutdown, sleep, or network teardown.
 #[inline(always)]
 #[cfg(not(target_os = "ios"))]
 pub fn whoami_hostname() -> String {
-    let mut hostname = whoami::fallible::hostname().unwrap_or_else(|_| "localhost".to_string());
+    let mut hostname = whoami::fallible::hostname().unwrap_or_default();
     hostname.make_ascii_lowercase();
-    hostname
+
+    #[cfg(windows)]
+    if hostname.is_empty() || hostname == "localhost" {
+        if let Ok(comp_name) = std::env::var("COMPUTERNAME") {
+            let comp_name = comp_name.trim();
+            if !comp_name.is_empty() && comp_name.to_lowercase() != "localhost" {
+                hostname = comp_name.to_lowercase();
+            }
+        }
+    }
+
+    if hostname.is_empty() || hostname == "localhost" {
+        if let Ok(cached) = CACHED_HOSTNAME.read() {
+            if !cached.is_empty() && *cached != "localhost" {
+                return cached.clone();
+            }
+        }
+    } else {
+        if let Ok(mut cached) = CACHED_HOSTNAME.write() {
+            if *cached != hostname {
+                *cached = hostname.clone();
+            }
+        }
+    }
+
+    if hostname.is_empty() {
+        "localhost".to_string()
+    } else {
+        hostname
+    }
 }
 
 #[inline]
