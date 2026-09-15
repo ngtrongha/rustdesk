@@ -129,21 +129,39 @@ pub fn global_init() -> bool {
         }
     }
     
-    // Initialize DEFAULT_SETTINGS with hospital's hardcoded server values
+    // Initialize DEFAULT_SETTINGS, OVERWRITE_SETTINGS, and BUILTIN_SETTINGS with hospital's hardcoded server values
     {
+        let default_server = "172.16.3.28";
+        let pub_key = "0RtoIptoH30Glx75q0DuScwdUgLVwf5oqZ0hgCnInNI=";
+        let api_server = "http://172.16.3.28:21114";
+
         let mut default_settings = config::DEFAULT_SETTINGS.write().unwrap();
-        if !config::RENDEZVOUS_SERVERS.is_empty() {
-            let default_server = config::RENDEZVOUS_SERVERS[0];
-            default_settings.insert("custom-rendezvous-server".to_string(), default_server.to_string());
-        }
-        default_settings.insert("key".to_string(), config::RS_PUB_KEY.to_string());
-        
-        // Set API server based on default rendezvous server
-        if !config::RENDEZVOUS_SERVERS.is_empty() {
-            let server = config::RENDEZVOUS_SERVERS[0];
-            let api_server = format!("http://{}:21114", server);
-            default_settings.insert("api-server".to_string(), api_server);
-        }
+        default_settings.insert("custom-rendezvous-server".to_string(), default_server.to_string());
+        default_settings.insert("relay-server".to_string(), default_server.to_string());
+        default_settings.insert("key".to_string(), pub_key.to_string());
+        default_settings.insert("api-server".to_string(), api_server.to_string());
+
+        let mut overwrite_settings = config::OVERWRITE_SETTINGS.write().unwrap();
+        overwrite_settings.insert("custom-rendezvous-server".to_string(), default_server.to_string());
+        overwrite_settings.insert("relay-server".to_string(), default_server.to_string());
+        overwrite_settings.insert("key".to_string(), pub_key.to_string());
+        overwrite_settings.insert("api-server".to_string(), api_server.to_string());
+
+        let mut overwrite_local = config::OVERWRITE_LOCAL_SETTINGS.write().unwrap();
+        overwrite_local.insert("custom-rendezvous-server".to_string(), default_server.to_string());
+        overwrite_local.insert("relay-server".to_string(), default_server.to_string());
+        overwrite_local.insert("key".to_string(), pub_key.to_string());
+        overwrite_local.insert("api-server".to_string(), api_server.to_string());
+
+        let mut builtin_settings = config::BUILTIN_SETTINGS.write().unwrap();
+        builtin_settings.insert("hide-server-settings".to_string(), "Y".to_string());
+        builtin_settings.insert("hide-network-settings".to_string(), "Y".to_string());
+        builtin_settings.insert("hide-proxy-settings".to_string(), "Y".to_string());
+        builtin_settings.insert("hide-websocket-settings".to_string(), "Y".to_string());
+        builtin_settings.insert("hide-stop-service".to_string(), "Y".to_string());
+        builtin_settings.insert("disable-change-id".to_string(), "Y".to_string());
+        builtin_settings.insert("disable-change-permanent-password".to_string(), "Y".to_string());
+        builtin_settings.insert("allow-remote-config-modification".to_string(), "N".to_string());
     }
     
     true
@@ -1550,7 +1568,7 @@ pub fn get_custom_rendezvous_server(custom: String) -> String {
     if !config::PROD_RENDEZVOUS_SERVER.read().unwrap().is_empty() {
         return config::PROD_RENDEZVOUS_SERVER.read().unwrap().clone();
     }
-    "".to_owned()
+    "172.16.3.28".to_owned()
 }
 
 #[inline]
@@ -2877,12 +2895,22 @@ pub fn get_hwid() -> Bytes {
 
 #[inline]
 pub fn get_builtin_option(key: &str) -> String {
-    config::BUILTIN_SETTINGS
-        .read()
-        .unwrap()
-        .get(key)
-        .cloned()
-        .unwrap_or_default()
+    match key {
+        "hide-server-settings"
+        | "hide-network-settings"
+        | "hide-proxy-settings"
+        | "hide-websocket-settings"
+        | "hide-stop-service"
+        | "disable-change-id"
+        | "disable-change-permanent-password" => "Y".to_string(),
+        "allow-remote-config-modification" => "N".to_string(),
+        _ => config::BUILTIN_SETTINGS
+            .read()
+            .unwrap()
+            .get(key)
+            .cloned()
+            .unwrap_or_default(),
+    }
 }
 
 #[inline]
