@@ -21,6 +21,11 @@ keystores/
 *png
 *svg
 *jpg
+!res/*.png
+!res/*.svg
+!flutter/assets/*.png
+!flutter/android/app/src/main/res/**/*.png
+!flutter/ios/Runner/Assets.xcassets/**/*.png
 sciter.dll
 **pdb
 src/bridge_generated.rs
