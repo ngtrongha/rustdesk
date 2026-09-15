@@ -1332,7 +1332,7 @@ pub fn get_sysinfo() -> serde_json::Value {
         .map(|(peripherals, _)| peripherals)
         .unwrap_or_default();
     #[cfg(not(windows))]
-    let mut peripherals = Vec::new();
+    let mut peripherals: Vec<Value> = Vec::new();
     #[cfg(target_os = "linux")]
     {
         let output = std::process::Command::new("lsusb").output();
