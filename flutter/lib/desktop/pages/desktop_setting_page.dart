@@ -20,7 +20,6 @@ import 'package:flutter_hbb/models/state_model.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:url_launcher/url_launcher_string.dart';
 
 import '../../common/widgets/dialog.dart';
 import '../../common/widgets/login.dart';
@@ -2631,12 +2630,10 @@ class _AboutState extends State<_About> {
         'myId': myId
       };
     }(), hasData: (data) {
-      final license = data['license'].toString();
       final version = data['version'].toString();
       final buildDate = data['buildDate'].toString();
       final fingerprint = data['fingerprint'].toString();
       final myId = data['myId'].toString();
-      const linkStyle = TextStyle(decoration: TextDecoration.underline);
       final scrollController = ScrollController();
       return SingleChildScrollView(
         controller: scrollController,
@@ -2660,26 +2657,10 @@ class _AboutState extends State<_About> {
               SelectionArea(
                   child: Text('${translate('ID')}: $myId')
                       .marginSymmetric(vertical: 4.0)),
-              InkWell(
-                  onTap: () {
-                    launchUrlString('https://rustdesk.com/privacy.html');
-                  },
-                  child: Text(
-                    translate('Privacy Statement'),
-                    style: linkStyle,
-                  ).marginSymmetric(vertical: 4.0)),
-              InkWell(
-                  onTap: () {
-                    launchUrlString('https://rustdesk.com');
-                  },
-                  child: Text(
-                    translate('Website'),
-                    style: linkStyle,
-                  ).marginSymmetric(vertical: 4.0)),
               Container(
                 decoration: const BoxDecoration(color: Color(0xFF2c8cff)),
                 padding:
-                    const EdgeInsets.symmetric(vertical: 24, horizontal: 8),
+                    const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
                 child: SelectionArea(
                     child: Row(
                   children: [
@@ -2687,22 +2668,33 @@ class _AboutState extends State<_About> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'Copyright © ${DateTime.now().toString().substring(0, 4)} Purslane Tech Pte. Ltd.\n$license',
-                            style: const TextStyle(color: Colors.white),
-                          ),
-                          Text(
-                            translate('Slogan_tip'),
+                          const Text(
+                            'BỆNH VIỆN ĐA KHOA KHÁNH HÒA',
                             style: TextStyle(
-                                fontWeight: FontWeight.w800,
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
                                 color: Colors.white),
-                          )
+                          ),
+                          const SizedBox(height: 4.0),
+                          const Text(
+                            'Phần mềm điều khiển máy tính từ xa nội bộ (BVĐKKH - Remote)',
+                            style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.white),
+                          ),
+                          const SizedBox(height: 8.0),
+                          Text(
+                            'Copyright © ${DateTime.now().toString().substring(0, 4)} BVĐK Khánh Hòa. All rights reserved.',
+                            style: const TextStyle(
+                                fontSize: 12,
+                                color: Colors.white70),
+                          ),
                         ],
                       ),
                     ),
                   ],
                 )),
-              ).marginSymmetric(vertical: 4.0)
+              ).marginSymmetric(vertical: 8.0)
             ],
           ).marginOnly(left: _kContentHMargin)
         ]),

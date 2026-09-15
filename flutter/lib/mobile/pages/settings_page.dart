@@ -1264,18 +1264,10 @@ void showAbout(OverlayDialogManager dialogManager) {
       title: Text(translate('About RustDesk')),
       content: Wrap(direction: Axis.vertical, spacing: 12, children: [
         Text('Version: $version'),
-        InkWell(
-            onTap: () async {
-              const url = 'https://rustdesk.com/';
-              await launchUrl(Uri.parse(url));
-            },
-            child: Padding(
-              padding: EdgeInsets.symmetric(vertical: 8),
-              child: Text('rustdesk.com',
-                  style: TextStyle(
-                    decoration: TextDecoration.underline,
-                  )),
-            )),
+        const Text(
+          'Bệnh viện Đa khoa Khánh Hòa\nBVĐKKH - Remote',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
       ]),
       actions: [],
     );
