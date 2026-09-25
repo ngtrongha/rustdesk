@@ -17,20 +17,12 @@ jobs:
       fail-fast: false
       matrix:
         job:
-          # Default bridge for every platform still on Flutter 3.24.5 (generated with 3.22.3).
+          # Dedicated bridge for Windows 10+ and Android builds (Flutter 3.47+)
           - {
               target: x86_64-unknown-linux-gnu,
               os: ubuntu-22.04,
               extra-build-args: "",
-              flutter-version: "3.22.3",
-              artifact-name: "bridge-artifact",
-            }
-          # Dedicated bridge for Windows builds (Flutter 3.44+); runs in parallel.
-          - {
-              target: x86_64-unknown-linux-gnu,
-              os: ubuntu-22.04,
-              extra-build-args: "",
-              flutter-version: "3.44.8",
+              flutter-version: "3.47.4",
               artifact-name: "bridge-artifact-flutter-3.44",
             }
     steps:
@@ -88,16 +80,7 @@ jobs:
         run: |
           cargo install cargo-expand --version ${{ env.CARGO_EXPAND_VERSION }} --locked
           cargo install flutter_rust_bridge_codegen --version ${{ env.FLUTTER_RUST_BRIDGE_VERSION }} --features "uuid" --locked
-          if [[ "${{ matrix.job.flutter-version }}" == "3.22.3" ]]; then
-            # Default Flutter 3.22.3: downgrade dependencies to versions compatible with Flutter 3.22.3 / Dart 3.4
-            sed -i -E 's/extended_text: .*/extended_text: 13.0.0/g' flutter/pubspec.yaml
-            sed -i -E 's/google_fonts: .*/google_fonts: ^6.2.1/g' flutter/pubspec.yaml
-            sed -i -E 's/flutter_plugin_android_lifecycle: .*/flutter_plugin_android_lifecycle: 2.0.17/g' flutter/pubspec.yaml
-          else
-            # Flutter 3.44/3.47 bridge for Windows: match that build's source/pubspec state so the
-            # generated *.freezed.dart compiles against the same Flutter/freezed it resolves.
-            bash .github/patches/apply_flutter_3.44_source_patches.sh
-          fi
+          bash .github/patches/apply_flutter_3.44_source_patches.sh
           pushd flutter && flutter pub get && popd
 
       - name: Run flutter rust bridge
