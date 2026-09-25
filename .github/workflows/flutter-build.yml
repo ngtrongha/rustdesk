@@ -1259,7 +1259,7 @@ jobs:
               cp ./target/${{ matrix.job.target }}/release/liblibrustdesk.so ./flutter/android/app/src/main/jniLibs/arm64-v8a/librustdesk.so
               # build flutter
               pushd flutter
-              flutter build apk "--${{ matrix.job.reltype }}" --target-platform android-arm64 --split-per-abi
+              flutter build apk "--${{ matrix.job.reltype }}" --target-platform android-arm64 --split-per-abi --android-skip-build-dependency-validation
               mv build/app/outputs/flutter-apk/app-arm64-v8a-${{ matrix.job.reltype }}.apk ../rustdesk-${{ env.VERSION }}-${{ matrix.job.arch }}${{ matrix.job.suffix }}.apk
             ;;
             armv7-linux-androideabi)
@@ -1268,7 +1268,7 @@ jobs:
               cp ./target/${{ matrix.job.target }}/release/liblibrustdesk.so ./flutter/android/app/src/main/jniLibs/armeabi-v7a/librustdesk.so
               # build flutter
               pushd flutter
-              flutter build apk "--${{ matrix.job.reltype }}" --target-platform android-arm --split-per-abi
+              flutter build apk "--${{ matrix.job.reltype }}" --target-platform android-arm --split-per-abi --android-skip-build-dependency-validation
               mv build/app/outputs/flutter-apk/app-armeabi-v7a-${{ matrix.job.reltype }}.apk ../rustdesk-${{ env.VERSION }}-${{ matrix.job.arch }}${{ matrix.job.suffix }}.apk
             ;;
             x86_64-linux-android)
@@ -1277,7 +1277,7 @@ jobs:
               cp ./target/${{ matrix.job.target }}/release/liblibrustdesk.so ./flutter/android/app/src/main/jniLibs/x86_64/librustdesk.so
               # build flutter
               pushd flutter
-              flutter build apk "--${{ matrix.job.reltype }}" --target-platform android-x64 --split-per-abi
+              flutter build apk "--${{ matrix.job.reltype }}" --target-platform android-x64 --split-per-abi --android-skip-build-dependency-validation
               mv build/app/outputs/flutter-apk/app-x86_64-${{ matrix.job.reltype }}.apk ../rustdesk-${{ env.VERSION }}-${{ matrix.job.arch }}${{ matrix.job.suffix }}.apk
             ;;
             i686-linux-android)
@@ -1286,7 +1286,7 @@ jobs:
               cp ./target/${{ matrix.job.target }}/release/liblibrustdesk.so ./flutter/android/app/src/main/jniLibs/x86/librustdesk.so
               # build flutter
               pushd flutter
-              flutter build apk "--${{ matrix.job.reltype }}" --target-platform android-x86 --split-per-abi
+              flutter build apk "--${{ matrix.job.reltype }}" --target-platform android-x86 --split-per-abi --android-skip-build-dependency-validation
               mv build/app/outputs/flutter-apk/app-x86-${{ matrix.job.reltype }}.apk ../rustdesk-${{ env.VERSION }}-${{ matrix.job.arch }}${{ matrix.job.suffix }}.apk
             ;;
           esac
@@ -1491,7 +1491,7 @@ jobs:
           fi
           # build flutter
           pushd flutter
-          flutter build apk "--${{ env.reltype }}" --target-platform android-arm64,android-arm,android-x64${{ env.x86_target }}
+          flutter build apk "--${{ env.reltype }}" --target-platform android-arm64,android-arm,android-x64${{ env.x86_target }} --android-skip-build-dependency-validation
           popd
           mkdir -p signed-apk
           mv ./flutter/build/app/outputs/flutter-apk/app-${{ env.reltype }}.apk signed-apk/rustdesk-${{ env.VERSION }}-universal${{ env.suffix }}.apk
