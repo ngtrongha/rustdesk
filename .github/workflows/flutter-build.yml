@@ -1254,7 +1254,7 @@ jobs:
           sed -i "s/signingConfigs.release/signingConfigs.debug/g" ./flutter/android/app/build.gradle
           pushd flutter
           flutter pub get
-          find ~/.pub-cache/ -name "UniLinksPlugin.java" -exec sed -i '/public static void registerWith/,/^[[:space:]]*}/d' {} + || true
+          find ~/.pub-cache/ -name "UniLinksPlugin.java" -exec perl -i -0777 -pe 's/public static void registerWith\(.*?\n    \}/\/* registerWith removed *\//s' {} + || true
           popd
           case ${{ matrix.job.target }} in
             aarch64-linux-android)
@@ -1496,7 +1496,7 @@ jobs:
           # build flutter
           pushd flutter
           flutter pub get
-          find ~/.pub-cache/ -name "UniLinksPlugin.java" -exec sed -i '/public static void registerWith/,/^[[:space:]]*}/d' {} + || true
+          find ~/.pub-cache/ -name "UniLinksPlugin.java" -exec perl -i -0777 -pe 's/public static void registerWith\(.*?\n    \}/\/* registerWith removed *\//s' {} + || true
           flutter build apk "--${{ env.reltype }}" --target-platform android-arm64,android-arm,android-x64${{ env.x86_target }} --android-skip-build-dependency-validation
           popd
           mkdir -p signed-apk
