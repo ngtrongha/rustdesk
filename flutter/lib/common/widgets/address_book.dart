@@ -756,12 +756,11 @@ class AddressBookTag extends StatelessWidget {
   final bool showActionMenu;
 
   const AddressBookTag(
-      {Key? key,
+      {super.key,
       required this.name,
       required this.tags,
       this.onTap,
-      this.showActionMenu = true})
-      : super(key: key);
+      this.showActionMenu = true});
 
   @override
   Widget build(BuildContext context) {

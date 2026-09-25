@@ -2460,7 +2460,7 @@ class _CheckboxState extends State<_Checkbox> {
 }
 
 class _Printer extends StatefulWidget {
-  const _Printer({super.key});
+  const _Printer({Key? key}) : super(key: key);
 
   @override
   State<_Printer> createState() => __PrinterState();
@@ -3103,7 +3103,7 @@ Widget _lock(
       ));
 }
 
-_LabeledTextField(
+ Widget _LabeledTextField(
     BuildContext context,
     String label,
     TextEditingController controller,
