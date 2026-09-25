@@ -190,7 +190,7 @@ jobs:
           # arm64 is on Flutter 3.44, so it needs the bridge generated with the same Flutter
           # (its *.freezed.dart must match the freezed the arm64 build resolves). x64 and every
           # other platform keep the default 3.22.3-generated bridge.
-          name: ${{ matrix.job.arch == 'aarch64' && 'bridge-artifact-flutter-3.44' || 'bridge-artifact' }}
+          name: bridge-artifact
           path: ./
 
       - name: Install LLVM and Clang
