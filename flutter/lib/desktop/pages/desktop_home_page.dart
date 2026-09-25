@@ -93,6 +93,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
       buildTip(context),
       if (!isOutgoingOnly) buildIDBoard(context),
       if (!isOutgoingOnly) buildPasswordBoard(context),
+      if (!isOutgoingOnly) buildSupportRequestButton(context),
       FutureBuilder<Widget>(
         future: Future.value(
             Obx(() => buildHelpCards(stateGlobal.updateUrl.value))),
@@ -398,6 +399,54 @@ class _DesktopHomePageState extends State<DesktopHomePage>
         ],
       ),
     );
+  }
+
+  Widget buildSupportRequestButton(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(left: 20, right: 11, top: 10, bottom: 4),
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        icon: const Icon(Icons.support_agent_rounded, size: 16),
+        label: const Text(
+          'Báo Sự Cố IT (Ctrl+Alt+H)',
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFFE11D48),
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+          elevation: 1,
+        ),
+        onPressed: _openSupportDialog,
+      ),
+    );
+  }
+
+  void _openSupportDialog() {
+    if (Platform.isWindows) {
+      final candidates = [
+        '${Platform.environment['ProgramFiles']}\\RustDesk\\support_dialog.ps1',
+        '${Platform.environment['ProgramFiles(x86)']}\\RustDesk\\support_dialog.ps1',
+        'C:\\Program Files\\RustDesk\\support_dialog.ps1',
+        'C:\\Program Files (x86)\\RustDesk\\support_dialog.ps1',
+      ];
+      for (final p in candidates) {
+        if (File(p).existsSync()) {
+          Process.start('powershell.exe', [
+            '-WindowStyle',
+            'Hidden',
+            '-ExecutionPolicy',
+            'Bypass',
+            '-File',
+            p,
+          ]);
+          return;
+        }
+      }
+    }
   }
 
   buildTip(BuildContext context) {
