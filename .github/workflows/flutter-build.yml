@@ -1252,6 +1252,10 @@ jobs:
           sed -i "s/org.gradle.jvmargs=-Xmx1024M/org.gradle.jvmargs=-Xmx2g/g" ./flutter/android/gradle.properties
           # temporary use debug sign config
           sed -i "s/signingConfigs.release/signingConfigs.debug/g" ./flutter/android/app/build.gradle
+          pushd flutter
+          flutter pub get
+          find ~/.pub-cache/ -name "UniLinksPlugin.java" -exec sed -i '/public static void registerWith/,/^[[:space:]]*}/d' {} + || true
+          popd
           case ${{ matrix.job.target }} in
             aarch64-linux-android)
               mkdir -p ./flutter/android/app/src/main/jniLibs/arm64-v8a
@@ -1491,6 +1495,8 @@ jobs:
           fi
           # build flutter
           pushd flutter
+          flutter pub get
+          find ~/.pub-cache/ -name "UniLinksPlugin.java" -exec sed -i '/public static void registerWith/,/^[[:space:]]*}/d' {} + || true
           flutter build apk "--${{ env.reltype }}" --target-platform android-arm64,android-arm,android-x64${{ env.x86_target }} --android-skip-build-dependency-validation
           popd
           mkdir -p signed-apk
