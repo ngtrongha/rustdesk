@@ -57,6 +57,10 @@ class UserModel {
         SupportTicketListener.instance.stop();
       }
     });
+    if (isAdmin.value ||
+        bind.mainGetLocalOption(key: 'support_notifications') == 'Y') {
+      SupportTicketListener.instance.start();
+    }
   }
 
   void refreshCurrentUser() async {
@@ -143,6 +147,9 @@ class UserModel {
       avatar.value = (userInfo['avatar'] ?? '').toString();
       isAdmin.value =
           userInfo['is_admin'] == true || userInfo['isAdmin'] == true;
+      if (isAdmin.value) {
+        SupportTicketListener.instance.start();
+      }
     }
   }
 

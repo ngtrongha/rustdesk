@@ -43,7 +43,9 @@ class SupportTicket {
 
   factory SupportTicket.fromJson(Map<String, dynamic> json) {
     return SupportTicket(
-      id: json['id'] is int ? json['id'] : int.tryParse(json['id']?.toString() ?? '0') ?? 0,
+      id: json['id'] is int
+          ? json['id']
+          : int.tryParse(json['id']?.toString() ?? '0') ?? 0,
       deviceId: (json['device_id'] ?? '').toString(),
       hostname: (json['hostname'] ?? '').toString(),
       username: (json['username'] ?? '').toString(),
@@ -60,7 +62,8 @@ class SupportTicket {
 }
 
 class SupportTicketListener {
-  static final SupportTicketListener instance = SupportTicketListener._internal();
+  static final SupportTicketListener instance =
+      SupportTicketListener._internal();
   SupportTicketListener._internal();
 
   Timer? _pollingTimer;
@@ -106,7 +109,8 @@ class SupportTicketListener {
         return;
       }
 
-      final queryParam = _lastSeenTicketId > 0 ? '?since_id=$_lastSeenTicketId' : '';
+      final queryParam =
+          _lastSeenTicketId > 0 ? '?since_id=$_lastSeenTicketId' : '';
       final url = Uri.parse('$apiServer/api/support/ticket/feed$queryParam');
 
       final token = bind.mainGetLocalOption(key: 'access_token');
@@ -117,7 +121,9 @@ class SupportTicketListener {
         headers['Authorization'] = 'Bearer $token';
       }
 
-      final response = await http.get(url, headers: headers).timeout(const Duration(seconds: 4));
+      final response = await http
+          .get(url, headers: headers)
+          .timeout(const Duration(seconds: 4));
       if (response.statusCode != 200) {
         return;
       }
@@ -128,7 +134,9 @@ class SupportTicketListener {
       }
 
       final List list = body['data'] as List;
-      final tickets = list.map((e) => SupportTicket.fromJson(e as Map<String, dynamic>)).toList();
+      final tickets = list
+          .map((e) => SupportTicket.fromJson(e as Map<String, dynamic>))
+          .toList();
 
       if (!_initialized) {
         // Initial setup: note the highest current ID so we don't spam old historical tickets
@@ -144,7 +152,8 @@ class SupportTicketListener {
       }
 
       // We are initialized; any ticket with id > _lastSeenTicketId is new!
-      final newTickets = tickets.where((t) => t.id > _lastSeenTicketId).toList();
+      final newTickets =
+          tickets.where((t) => t.id > _lastSeenTicketId).toList();
       if (newTickets.isNotEmpty) {
         // Sort ascending by ID to notify in chronological order
         newTickets.sort((a, b) => a.id.compareTo(b.id));
@@ -164,17 +173,28 @@ class SupportTicketListener {
   }
 
   void _onNewTicketReceived(SupportTicket ticket) {
-    debugPrint('[SupportTicketListener] New Ticket #${ticket.id} from ${ticket.hostname} (${ticket.deviceId})');
+    debugPrint(
+        '[SupportTicketListener] New Ticket #${ticket.id} from ${ticket.hostname} (${ticket.deviceId})');
 
     // 1. Play audible chime
     _playChime();
 
-    // 2. Windows Toast notification
+    // 2. Native Windows Toast notification (pops up from notification center / taskbar)
     if (Platform.isWindows) {
       _showWindowsToast(ticket);
     }
 
-    // 3. Floating In-App Banner with 1-click connect button
+    // 3. Bring window to front / restore from minimized or tray
+    if (isDesktop) {
+      try {
+        windowOnTop(null);
+      } catch (e) {
+        debugPrint(
+            '[SupportTicketListener] Failed to bring window to front: $e');
+      }
+    }
+
+    // 4. Floating In-App Banner with 1-click connect button
     _showInAppBanner(ticket);
   }
 
@@ -183,7 +203,9 @@ class SupportTicketListener {
       SystemSound.play(SystemSoundType.alert);
       if (Platform.isWindows) {
         final user32 = DynamicLibrary.open('user32.dll');
-        final messageBeep = user32.lookupFunction<Int32 Function(Uint32), int Function(int)>('MessageBeep');
+        final messageBeep =
+            user32.lookupFunction<Int32 Function(Uint32), int Function(int)>(
+                'MessageBeep');
         messageBeep(0x00000030); // MB_ICONEXCLAMATION
       }
     } catch (e) {
@@ -193,27 +215,54 @@ class SupportTicketListener {
 
   void _showWindowsToast(SupportTicket ticket) {
     try {
-      final title = '[BVĐKKH] Yêu cầu hỗ trợ IT: ${ticket.hostname.isEmpty ? ticket.deviceId : ticket.hostname}';
-      final body = '${ticket.category}: ${ticket.description}\nID: ${ticket.deviceId}';
+      final displayName =
+          ticket.hostname.isNotEmpty ? ticket.hostname : ticket.deviceId;
+      final title = '[BVĐKKH] Yêu cầu hỗ trợ IT: $displayName';
+      final body =
+          '${ticket.category}: ${ticket.description}\nID: ${ticket.deviceId}';
 
       final psScript = '''
-\$ErrorActionPreference = 'SilentlyContinue'
-[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] > \$null
-\$xml = [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime]::new()
-\$toastXml = @"
-<toast>
+\$ErrorActionPreference = 'Stop'
+\$title = @'
+$title
+'@
+\$body = @'
+$body
+'@
+try {
+    [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] > \$null
+    [Windows.UI.Notifications.ToastNotification, Windows.UI.Notifications, ContentType = WindowsRuntime] > \$null
+    [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] > \$null
+    \$appId = '{1AC14E77-02E7-4E5D-B744-22D60870027C}\\WindowsPowerShell\\v1.0\\powershell.exe'
+    \$xml = [Windows.Data.Xml.Dom.XmlDocument]::new()
+    \$toastXml = @"
+<toast duration="long">
   <visual>
-    <binding template='ToastGeneric'>
-      <text><![CDATA[$title]]></text>
-      <text><![CDATA[$body]]></text>
+    <binding template="ToastGeneric">
+      <text><![CDATA[\$title]]></text>
+      <text><![CDATA[\$body]]></text>
     </binding>
   </visual>
-  <audio src='ms-winsoundevent:Notification.Default'/>
+  <audio src="ms-winsoundevent:Notification.Reminder"/>
 </toast>
 "@
-\$xml.LoadXml(\$toastXml)
-\$toast = [Windows.UI.Notifications.ToastNotification]::new(\$xml)
-[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('BVĐKKH IT HelpDesk').Show(\$toast)
+    \$xml.LoadXml(\$toastXml)
+    \$toast = [Windows.UI.Notifications.ToastNotification]::new(\$xml)
+    [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier(\$appId).Show(\$toast)
+} catch {
+    try {
+        Add-Type -AssemblyName System.Windows.Forms
+        \$notify = New-Object System.Windows.Forms.NotifyIcon
+        \$notify.Icon = [System.Drawing.SystemIcons]::Information
+        \$notify.BalloonTipTitle = \$title
+        \$notify.BalloonTipText = \$body
+        \$notify.BalloonTipIcon = [System.Windows.Forms.ToolTipIcon]::Info
+        \$notify.Visible = \$true
+        \$notify.ShowBalloonTip(10000)
+        Start-Sleep -Seconds 5
+        \$notify.Dispose()
+    } catch {}
+}
 ''';
 
       // PowerShell expects UTF-16LE for -EncodedCommand
@@ -237,7 +286,8 @@ class SupportTicketListener {
   }
 
   void _showInAppBanner(SupportTicket ticket) {
-    final displayName = ticket.hostname.isNotEmpty ? ticket.hostname : ticket.deviceId;
+    final displayName =
+        ticket.hostname.isNotEmpty ? ticket.hostname : ticket.deviceId;
     final contact = ticket.contactName.isNotEmpty
         ? '${ticket.contactName} (${ticket.contactPhone})'
         : (ticket.username.isNotEmpty ? ticket.username : '');
@@ -251,7 +301,8 @@ class SupportTicketListener {
           color: const Color(0xFF1E293B), // Dark slate blue
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
-            side: const BorderSide(color: Color(0xFFE11D48), width: 2), // Rose/Red warning border
+            side: const BorderSide(
+                color: Color(0xFFE11D48), width: 2), // Rose/Red warning border
           ),
           child: Container(
             constraints: const BoxConstraints(maxWidth: 550),
@@ -268,7 +319,8 @@ class SupportTicketListener {
                         color: const Color(0xFFE11D48),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Icon(Icons.support_agent, color: Colors.white, size: 22),
+                      child: const Icon(Icons.support_agent,
+                          color: Colors.white, size: 22),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
@@ -298,7 +350,8 @@ class SupportTicketListener {
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white70, size: 20),
+                      icon: const Icon(Icons.close,
+                          color: Colors.white70, size: 20),
                       onPressed: cancelFunc,
                       tooltip: 'Đóng',
                     ),
@@ -317,22 +370,28 @@ class SupportTicketListener {
                       if (contact.isNotEmpty) ...[
                         Row(
                           children: [
-                            const Icon(Icons.person, color: Colors.white60, size: 14),
+                            const Icon(Icons.person,
+                                color: Colors.white60, size: 14),
                             const SizedBox(width: 4),
                             Text(
                               contact,
-                              style: const TextStyle(color: Colors.white70, fontSize: 12),
+                              style: const TextStyle(
+                                  color: Colors.white70, fontSize: 12),
                             ),
                             const Spacer(),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
                                 color: const Color(0xFF0284C7),
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
                                 ticket.category,
-                                style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                                style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600),
                               ),
                             ),
                           ],
@@ -341,7 +400,8 @@ class SupportTicketListener {
                       ],
                       Text(
                         ticket.description,
-                        style: const TextStyle(color: Colors.white, fontSize: 13),
+                        style:
+                            const TextStyle(color: Colors.white, fontSize: 13),
                         maxLines: 3,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -354,7 +414,10 @@ class SupportTicketListener {
                   children: [
                     Text(
                       'ID: ${ticket.deviceId}',
-                      style: const TextStyle(color: Colors.white60, fontSize: 12, fontFamily: 'monospace'),
+                      style: const TextStyle(
+                          color: Colors.white60,
+                          fontSize: 12,
+                          fontFamily: 'monospace'),
                     ),
                     const Spacer(),
                     OutlinedButton(
