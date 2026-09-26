@@ -8,6 +8,7 @@ import 'package:flutter_hbb/models/ab_model.dart';
 import 'package:get/get.dart';
 
 import '../common.dart';
+import '../common/support_ticket_listener.dart';
 import '../utils/http_service.dart' as http;
 import 'model.dart';
 import 'platform_model.dart';
@@ -48,6 +49,13 @@ class UserModel {
       //  For _updateLocalUserInfo, network error will be set later
       //  For login success, should clear network error
       networkError.value = '';
+    });
+    isAdmin.listen((isAdminValue) {
+      if (isAdminValue) {
+        SupportTicketListener.instance.start();
+      } else {
+        SupportTicketListener.instance.stop();
+      }
     });
   }
 
@@ -149,6 +157,7 @@ class UserModel {
     displayName.value = '';
     avatar.value = '';
     isAdmin.value = false;
+    SupportTicketListener.instance.stop();
   }
 
   _parseAndUpdateUser(UserPayload user) {
