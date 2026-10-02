@@ -1,4 +1,4 @@
-﻿@echo off
+@echo off
 set "CHECK_ONLY=0"
 set "IS_SILENT=0"
 set "FORCE_CLIENT_TYPE="
@@ -145,6 +145,8 @@ call :TRY_INSTALLER "rustdesk-*-aarch64.msi" MSI
 goto INSTALLER_SELECTED
 
 :SELECT_X64
+call :TRY_INSTALLER "src\rustdesk-1.5.12-x86_64.exe" EXE
+call :TRY_INSTALLER "rustdesk-1.5.12-x86_64.exe" EXE
 call :TRY_INSTALLER "src\rustdesk-1.5.11-x86_64.exe" EXE
 call :TRY_INSTALLER "rustdesk-1.5.11-x86_64.exe" EXE
 call :TRY_INSTALLER "src\BVDKKH-*-x86_64.exe" EXE
@@ -174,6 +176,12 @@ call :TRY_INSTALLER "rustdesk-*-x86_64.msi" MSI
 goto INSTALLER_SELECTED
 
 :SELECT_SCITER
+if /I "%ARCH%"=="x64" call :TRY_INSTALLER "src\rustdesk-1.5.12-win7-x86_64.exe" EXE
+if /I "%ARCH%"=="x64" call :TRY_INSTALLER "rustdesk-1.5.12-win7-x86_64.exe" EXE
+if /I "%ARCH%"=="x64" call :TRY_INSTALLER "src\rustdesk-*-win7-x86_64.exe" EXE
+if /I "%ARCH%"=="x64" call :TRY_INSTALLER "rustdesk-*-win7-x86_64.exe" EXE
+call :TRY_INSTALLER "src\rustdesk-1.5.12-x86-sciter.exe" EXE
+call :TRY_INSTALLER "rustdesk-1.5.12-x86-sciter.exe" EXE
 call :TRY_INSTALLER "src\rustdesk-1.5.11-x86-sciter.exe" EXE
 call :TRY_INSTALLER "rustdesk-1.5.11-x86-sciter.exe" EXE
 call :TRY_INSTALLER "src\BVDKKH-*-x86-sciter.exe" EXE
@@ -236,13 +244,13 @@ if not errorlevel 1 set "OLD_FOUND=1"
 if /I "%CLIENT_TYPE%"=="OLD" goto SETUP_OLD_CLIENT
 
 :SETUP_NEW_CLIENT
-set "APP_NAME=BVĐKKH - Remote"
+set "APP_NAME=BVDKKH - Remote"
 set "APP_DISPLAY=BVĐKKH - Remote"
-set "MAIN_EXE=BVĐKKH - Remote.exe"
-set "SERVICE_NAME=BVĐKKH - Remote"
+set "MAIN_EXE=BVDKKH - Remote.exe"
+set "SERVICE_NAME=BVDKKH - Remote"
 set "SERVICE_DISPLAY=BVĐKKH - Remote Service"
-set "TARGET_DIR=%ProgramFiles%\BVĐKKH - Remote"
-if /I "%ARCH%"=="x86" if defined ProgramFiles(x86) call set "TARGET_DIR=%%ProgramFiles(x86)%%\BVĐKKH - Remote"
+set "TARGET_DIR=%ProgramFiles%\BVDKKH - Remote"
+if /I "%ARCH%"=="x86" if defined ProgramFiles(x86) call set "TARGET_DIR=%%ProgramFiles(x86)%%\BVDKKH - Remote"
 goto CLIENT_SETUP_DONE
 
 :SETUP_OLD_CLIENT
@@ -278,7 +286,7 @@ echo.
 if "%CHECK_ONLY%"=="0" goto SKIP_STATUS_CHECK
 
 echo --- Trang thai he thong hien tai ---
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$svcs = @('BVĐKKH - Remote', 'rustdesk'); $found = $false; foreach ($s in $svcs) { $svc = Get-Service -Name $s -ErrorAction SilentlyContinue; if ($svc) { Write-Host ('Dich vu ' + $s + ': ' + $svc.Status); $found = $true } }; if (-not $found) { Write-Host 'Dich vu: CHUA CAI DAT' }"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$svcs = @('BVDKKH - Remote', 'BVĐKKH - Remote', 'rustdesk'); $found = $false; foreach ($s in $svcs) { $svc = Get-Service -Name $s -ErrorAction SilentlyContinue; if ($svc) { Write-Host ('Dich vu ' + $s + ': ' + $svc.Status); $found = $true } }; if (-not $found) { Write-Host 'Dich vu: CHUA CAI DAT' }"
 
 if exist "%~dp0src\install_official.ps1" (
     powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0src\install_official.ps1" -CheckOnly -TargetDir "%TARGET_DIR%" -MainExe "%MAIN_EXE%" -AppName "%APP_NAME%"
@@ -286,13 +294,13 @@ if exist "%~dp0src\install_official.ps1" (
     powershell -NoProfile -ExecutionPolicy Bypass -File "src\install_official.ps1" -CheckOnly -TargetDir "%TARGET_DIR%" -MainExe "%MAIN_EXE%" -AppName "%APP_NAME%"
 )
 
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$found = $false; foreach ($c in @('RustDesk2.toml', 'BVĐKKH - Remote2.toml')) { foreach ($base in @((Join-Path $env:SystemRoot 'System32\config\systemprofile\AppData\Roaming\RustDesk\config'), (Join-Path $env:ProgramData 'RustDesk\config'), (Join-Path $env:ProgramData 'BVĐKKH - Remote\config'))) { if (Test-Path (Join-Path $base $c) -ErrorAction SilentlyContinue) { $found = $true; break } } }; if ($found) { Write-Host 'Cau hinh Server: DA GHI' } else { Write-Host 'Cau hinh Server: CHUA GHI' }"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$found = $false; foreach ($c in @('RustDesk2.toml', 'BVDKKH - Remote2.toml', 'BVĐKKH - Remote2.toml')) { foreach ($base in @((Join-Path $env:SystemRoot 'System32\config\systemprofile\AppData\Roaming\RustDesk\config'), (Join-Path $env:ProgramData 'RustDesk\config'), (Join-Path $env:ProgramData 'BVDKKH - Remote\config'), (Join-Path $env:ProgramData 'BVĐKKH - Remote\config'))) { if (Test-Path (Join-Path $base $c) -ErrorAction SilentlyContinue) { $found = $true; break } } }; if ($found) { Write-Host 'Cau hinh Server: DA GHI' } else { Write-Host 'Cau hinh Server: CHUA GHI' }"
 
 :: Kiem tra ket noi relay server
 powershell -NoProfile -ExecutionPolicy Bypass -Command "try { $t = New-Object System.Net.Sockets.TcpClient; $t.Connect('172.16.3.28', 21116); $t.Close(); Write-Host 'Ket noi relay server: OK (port 21116)' } catch { Write-Host 'Ket noi relay server: KHONG KET NOI DUOC (port 21116)' }"
 
 :: Hien thi RustDesk ID hien tai (neu co)
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$idFound = $false; $paths = @((Join-Path $env:SystemRoot 'System32\config\systemprofile\AppData\Roaming\RustDesk\config'), (Join-Path $env:ProgramData 'RustDesk\config'), (Join-Path $env:ProgramData 'BVĐKKH - Remote\config')); foreach ($p in $paths) { foreach ($t in @('RustDesk.toml', 'BVĐKKH - Remote.toml')) { $f = Join-Path $p $t; if (Test-Path $f -ErrorAction SilentlyContinue) { try { $c = [System.IO.File]::ReadAllText($f); if ($c -match 'id\s*=\s*''([^'']+)''') { Write-Host ('RustDesk ID: ' + $Matches[1]); $idFound = $true; break } } catch { try { $lines = Get-Content $f -ErrorAction SilentlyContinue; foreach ($l in $lines) { if ($l -match 'id\s*=\s*''([^'']+)''') { Write-Host ('RustDesk ID: ' + $Matches[1]); $idFound = $true; break } }; if ($idFound) { break } } catch {} } } }; if ($idFound) { break } }; if (-not $idFound) { Write-Host 'RustDesk ID: CHUA DANG KY' }"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$idFound = $false; $paths = @((Join-Path $env:SystemRoot 'System32\config\systemprofile\AppData\Roaming\RustDesk\config'), (Join-Path $env:ProgramData 'RustDesk\config'), (Join-Path $env:ProgramData 'BVDKKH - Remote\config'), (Join-Path $env:ProgramData 'BVĐKKH - Remote\config')); foreach ($p in $paths) { foreach ($t in @('RustDesk.toml', 'BVDKKH - Remote.toml', 'BVĐKKH - Remote.toml')) { $f = Join-Path $p $t; if (Test-Path $f -ErrorAction SilentlyContinue) { try { $c = [System.IO.File]::ReadAllText($f); if ($c -match 'id\s*=\s*''([^'']+)''') { Write-Host ('RustDesk ID: ' + $Matches[1]); $idFound = $true; break } } catch { try { $lines = Get-Content $f -ErrorAction SilentlyContinue; foreach ($l in $lines) { if ($l -match 'id\s*=\s*''([^'']+)''') { Write-Host ('RustDesk ID: ' + $Matches[1]); $idFound = $true; break } }; if ($idFound) { break } } catch {} } } }; if ($idFound) { break } }; if (-not $idFound) { Write-Host 'RustDesk ID: CHUA DANG KY' }"
 
 echo ---
 exit /b 0
@@ -405,9 +413,11 @@ if defined UNPACK_DIR (
     :: Kiem tra dam bao file trong TARGET_DIR khop hoan toan dung luong voi file goc da giai nen
     powershell -NoProfile -ExecutionPolicy Bypass -Command "$u = $env:UNPACK_DIR; if (-not $u) { $u = Join-Path $env:LOCALAPPDATA 'rustdesk' }; $ue = Join-Path $u 'rustdesk.exe'; $te = Join-Path $env:TARGET_DIR 'rustdesk.exe'; if ((Test-Path $ue) -and (Test-Path $te)) { if ((Get-Item $te).Length -ne (Get-Item $ue).Length) { Copy-Item $ue $te -Force } }"
 
-    :: Tao ca 'BVĐKKH - Remote.exe' va 'rustdesk.exe' de dam bao ca is_installed() va script deu chay dung
+    :: Tao ca 'BVDKKH - Remote.exe', 'BVĐKKH - Remote.exe' va 'rustdesk.exe' de dam bao ca is_installed() va script deu chay dung
     if /I "%CLIENT_TYPE%"=="NEW" (
         copy /Y "%TARGET_DIR%\rustdesk.exe" "%TARGET_DIR%\%MAIN_EXE%" >nul 2>&1
+        copy /Y "%TARGET_DIR%\rustdesk.exe" "%TARGET_DIR%\BVDKKH - Remote.exe" >nul 2>&1
+        copy /Y "%TARGET_DIR%\rustdesk.exe" "%TARGET_DIR%\BVĐKKH - Remote.exe" >nul 2>&1
     )
 ) else (
     echo   [CANH BAO] Khong tim thay thu muc giai nen, thu chep truc tiep file...
@@ -415,8 +425,36 @@ if defined UNPACK_DIR (
     copy /Y "%RUSTDESK_FILE%" "%TARGET_DIR%\rustdesk.exe" >nul 2>&1
     if /I "%CLIENT_TYPE%"=="NEW" (
         copy /Y "%RUSTDESK_FILE%" "%TARGET_DIR%\%MAIN_EXE%" >nul 2>&1
+        copy /Y "%RUSTDESK_FILE%" "%TARGET_DIR%\BVDKKH - Remote.exe" >nul 2>&1
+        copy /Y "%RUSTDESK_FILE%" "%TARGET_DIR%\BVĐKKH - Remote.exe" >nul 2>&1
     )
 )
+
+:: Dong bo truc tiep cac cong cu ho tro Bao Su Co IT vao thu muc cai dat
+echo   Dang dong bo cac cong cu ho tro Bao Su Co IT...
+echo [%DATE% %TIME%]   Dong bo cong cu ho tro Bao Su Co IT >> "%LOG_FILE%"
+if exist "%~dp0src\BaoSuCoIT.exe" (
+    copy /Y "%~dp0src\BaoSuCoIT.exe" "%TARGET_DIR%\" >nul 2>&1
+    copy /Y "%~dp0src\support_dialog.ps1" "%TARGET_DIR%\" >nul 2>&1
+    copy /Y "%~dp0src\ticket_watcher.ps1" "%TARGET_DIR%\" >nul 2>&1
+    copy /Y "%~dp0src\support_launcher.vbs" "%TARGET_DIR%\" >nul 2>&1
+    copy /Y "%~dp0src\icon.ico" "%TARGET_DIR%\" >nul 2>&1
+)
+if exist "src\BaoSuCoIT.exe" (
+    copy /Y "src\BaoSuCoIT.exe" "%TARGET_DIR%\" >nul 2>&1
+    copy /Y "src\support_dialog.ps1" "%TARGET_DIR%\" >nul 2>&1
+    copy /Y "src\ticket_watcher.ps1" "%TARGET_DIR%\" >nul 2>&1
+    copy /Y "src\support_launcher.vbs" "%TARGET_DIR%\" >nul 2>&1
+    copy /Y "src\icon.ico" "%TARGET_DIR%\" >nul 2>&1
+)
+if exist "%~dp0BaoSuCoIT.exe" (
+    copy /Y "%~dp0BaoSuCoIT.exe" "%TARGET_DIR%\" >nul 2>&1
+    copy /Y "%~dp0support_dialog.ps1" "%TARGET_DIR%\" >nul 2>&1
+    copy /Y "%~dp0ticket_watcher.ps1" "%TARGET_DIR%\" >nul 2>&1
+    copy /Y "%~dp0support_launcher.vbs" "%TARGET_DIR%\" >nul 2>&1
+    copy /Y "%~dp0icon.ico" "%TARGET_DIR%\" >nul 2>&1
+)
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$td = $env:TARGET_DIR; if ($td) { $td = $td.Trim().TrimEnd('\'); foreach ($sd in @('%~dp0src', 'src', '%~dp0')) { if (Test-Path $sd) { foreach ($fn in @('BaoSuCoIT.exe', 'support_dialog.ps1', 'ticket_watcher.ps1', 'support_launcher.vbs', 'icon.ico')) { $sf = Join-Path $sd $fn; $df = Join-Path $td $fn; if (Test-Path $sf) { Copy-Item $sf $df -Force -ErrorAction SilentlyContinue } } } } }"
 
 set "RD_PATH=%TARGET_DIR%\%MAIN_EXE%"
 if not exist "%RD_PATH%" if exist "%TARGET_DIR%\rustdesk.exe" set "RD_PATH=%TARGET_DIR%\rustdesk.exe"
@@ -441,14 +479,18 @@ if exist "%~dp0src\install_official.ps1" (
 echo   Dang cau hinh va dang ky dich vu he thong (%SERVICE_DISPLAY%)...
 echo [%DATE% %TIME%]   Dang ky Service %SERVICE_NAME% >> "%LOG_FILE%"
 
-:: Neu cai ban moi ma may da co service rustdesk cu, dung va xoa service cu tranh xung dot
+:: Neu cai ban moi ma may da co service rustdesk hoac BVĐKKH - Remote cu, dung va xoa tranh xung dot
 if /I "%CLIENT_TYPE%"=="NEW" (
     call :WAIT_SERVICE_STATUS Stopped "rustdesk"
     sc.exe delete rustdesk >nul 2>&1
+    call :WAIT_SERVICE_STATUS Stopped "BVĐKKH - Remote"
+    sc.exe delete "BVĐKKH - Remote" >nul 2>&1
 )
 
-:: Neu cai ban cu ma may da co service BVĐKKH - Remote, dung va xoa service do
+:: Neu cai ban cu ma may da co service BVDKKH / BVĐKKH, dung va xoa service do
 if /I "%CLIENT_TYPE%"=="OLD" (
+    call :WAIT_SERVICE_STATUS Stopped "BVDKKH - Remote"
+    sc.exe delete "BVDKKH - Remote" >nul 2>&1
     call :WAIT_SERVICE_STATUS Stopped "BVĐKKH - Remote"
     sc.exe delete "BVĐKKH - Remote" >nul 2>&1
 )
@@ -526,6 +568,7 @@ echo Dang thiet lap mat khau mac dinh va khoa cai dat bao mat...
 echo [%DATE% %TIME%] Buoc: Thiet lap mat khau va bao mat >> "%LOG_FILE%"
 if not defined RD_PATH set "RD_PATH=%TARGET_DIR%\%MAIN_EXE%"
 if not exist "%RD_PATH%" if exist "%TARGET_DIR%\rustdesk.exe" set "RD_PATH=%TARGET_DIR%\rustdesk.exe"
+if not exist "%RD_PATH%" if exist "%ProgramFiles%\BVDKKH - Remote\BVDKKH - Remote.exe" set "RD_PATH=%ProgramFiles%\BVDKKH - Remote\BVDKKH - Remote.exe"
 if not exist "%RD_PATH%" if exist "%ProgramFiles%\BVĐKKH - Remote\BVĐKKH - Remote.exe" set "RD_PATH=%ProgramFiles%\BVĐKKH - Remote\BVĐKKH - Remote.exe"
 if not exist "%RD_PATH%" if exist "%ProgramFiles%\RustDesk\rustdesk.exe" set "RD_PATH=%ProgramFiles%\RustDesk\rustdesk.exe"
 if not exist "%RD_PATH%" if exist "%SystemDrive%\Program Files\RustDesk\rustdesk.exe" set "RD_PATH=%SystemDrive%\Program Files\RustDesk\rustdesk.exe"
@@ -657,6 +700,8 @@ if exist "%~dp0src\enable_wol.ps1" (
 echo Dang kiem tra va xu ly shortcut "BVDKKH - Remote"...
 echo [%DATE% %TIME%] Buoc: Tao shortcut >> "%LOG_FILE%"
 set "RD_DIR=%TARGET_DIR%"
+if "%RD_DIR:~-1%"=="\" set "RD_DIR=%RD_DIR:~0,-1%"
+if "%RD_PATH:~-1%"=="\" set "RD_PATH=%RD_PATH:~0,-1%"
 
 set "CUSTOM_ICON="
 if exist "%~dp0src\icon.ico" set "CUSTOM_ICON=%~dp0src\icon.ico"
@@ -740,9 +785,9 @@ echo.
 echo Dang tien hanh tat tien trinh, go bo dich vu cu, xoa registry va shortcut cu...
 echo [%DATE% %TIME%] Che do: Chi don dep ban cu (--clean-old) >> "%LOG_FILE%"
 if exist "%~dp0src\install_official.ps1" (
-    powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0src\install_official.ps1" -MigrateOld -TargetDir "%ProgramFiles%\BVĐKKH - Remote" -AppName "BVĐKKH - Remote"
+    powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0src\install_official.ps1" -MigrateOld -TargetDir "%ProgramFiles%\BVDKKH - Remote" -AppName "BVDKKH - Remote"
 ) else if exist "src\install_official.ps1" (
-    powershell -NoProfile -ExecutionPolicy Bypass -File "src\install_official.ps1" -MigrateOld -TargetDir "%ProgramFiles%\BVĐKKH - Remote" -AppName "BVĐKKH - Remote"
+    powershell -NoProfile -ExecutionPolicy Bypass -File "src\install_official.ps1" -MigrateOld -TargetDir "%ProgramFiles%\BVDKKH - Remote" -AppName "BVDKKH - Remote"
 )
 echo.
 echo ==========================================================
