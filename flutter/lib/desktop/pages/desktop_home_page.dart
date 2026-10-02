@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Nguyễn Trọng Hà. All rights reserved.
+// Project: BVĐKKH - Remoter
+// Author: Nguyễn Trọng Hà
+
 import 'dart:async';
 import 'dart:io';
 import 'dart:convert';
@@ -25,6 +29,8 @@ import 'package:window_manager/window_manager.dart';
 import 'package:window_size/window_size.dart' as window_size;
 import '../widgets/button.dart';
 import '../../common/widgets/login.dart';
+import '../../common/support_ticket_listener.dart';
+import '../../common/widgets/support_dialog.dart';
 
 class DesktopHomePage extends StatefulWidget {
   const DesktopHomePage({Key? key}) : super(key: key);
@@ -51,6 +57,10 @@ class _DesktopHomePageState extends State<DesktopHomePage>
   Timer? _updateTimer;
   bool isCardClosed = false;
 
+  String _hostname = '';
+  String _username = '';
+  String _ipAddress = '';
+
   final RxBool _editHover = false.obs;
   final RxBool _block = false.obs;
 
@@ -60,15 +70,26 @@ class _DesktopHomePageState extends State<DesktopHomePage>
   Widget build(BuildContext context) {
     super.build(context);
     final isIncomingOnly = bind.isIncomingOnly();
-    return _buildBlock(
-        child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        buildLeftPane(context),
-        if (!isIncomingOnly) const VerticalDivider(width: 1),
-        if (!isIncomingOnly) Expanded(child: buildRightPane(context)),
-      ],
-    ));
+    return CallbackShortcuts(
+      bindings: <ShortcutActivator, VoidCallback>{
+        const SingleActivator(LogicalKeyboardKey.keyH,
+            control: true, alt: true): () {
+          _openSupportDialog();
+        },
+      },
+      child: Focus(
+        autofocus: true,
+        child: _buildBlock(
+            child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            buildLeftPane(context),
+            if (!isIncomingOnly) const VerticalDivider(width: 1),
+            if (!isIncomingOnly) Expanded(child: buildRightPane(context)),
+          ],
+        )),
+      ),
+    );
   }
 
   Widget _buildBlock({required Widget child}) {
@@ -93,6 +114,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
       buildTip(context),
       if (!isOutgoingOnly) buildIDBoard(context),
       if (!isOutgoingOnly) buildPasswordBoard(context),
+      if (!isOutgoingOnly) buildSupportRequestButton(context),
       FutureBuilder<Widget>(
         future: Future.value(
             Obx(() => buildHelpCards(stateGlobal.updateUrl.value))),
@@ -277,8 +299,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
             child: Icon(
               Icons.more_vert_outlined,
               size: 20,
-              color:
-                  hover.value ? textColor : textColor?.withOpacity(0.5),
+              color: hover.value ? textColor : textColor?.withOpacity(0.5),
             ),
           ),
         ),
@@ -400,42 +421,227 @@ class _DesktopHomePageState extends State<DesktopHomePage>
     );
   }
 
-  buildTip(BuildContext context) {
+  Widget buildSupportRequestButton(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(left: 20, right: 11, top: 10, bottom: 4),
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        icon: const Icon(Icons.support_agent_rounded, size: 16),
+        label: const Text(
+          'Báo Sự Cố IT (Ctrl+Alt+H)',
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFFE11D48),
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+          elevation: 1,
+        ),
+        onPressed: _openSupportDialog,
+      ),
+    );
+  }
+
+  void _openSupportDialog() {
+    showSupportRequestDialog(context);
+  }
+
+  Future<void> _loadDeviceInfo() async {
+    _hostname = Platform.localHostname;
+    _username =
+        Platform.environment['USERNAME'] ?? Platform.environment['USER'] ?? '';
+    try {
+      final interfaces = await NetworkInterface.list(
+        type: InternetAddressType.IPv4,
+        includeLoopback: false,
+      );
+      String fallbackIp = '';
+      for (final iface in interfaces) {
+        final name = iface.name.toLowerCase();
+        final isVirtual = name.contains('vethernet') ||
+            name.contains('virtual') ||
+            name.contains('wsl') ||
+            name.contains('vmware') ||
+            name.contains('loopback');
+        for (final addr in iface.addresses) {
+          if (!addr.isLoopback && !addr.address.startsWith('169.254.')) {
+            if (!isVirtual && _ipAddress.isEmpty) {
+              _ipAddress = addr.address;
+              break;
+            } else if (fallbackIp.isEmpty) {
+              fallbackIp = addr.address;
+            }
+          }
+        }
+        if (_ipAddress.isNotEmpty) break;
+      }
+      if (_ipAddress.isEmpty && fallbackIp.isNotEmpty) {
+        _ipAddress = fallbackIp;
+      }
+    } catch (_) {}
+    if (mounted) {
+      setState(() {});
+      if (bind.isIncomingOnly() && isInHomePage()) {
+        Future.delayed(const Duration(milliseconds: 100), () {
+          _updateWindowSize();
+        });
+      }
+    }
+  }
+
+  String _tr(String key, String viDefault) {
+    if (localeName.toLowerCase().startsWith('vi') || localeName.isEmpty) {
+      final t = translate(key);
+      return t == key ? viDefault : t;
+    }
+    return translate(key);
+  }
+
+  Widget _buildDeviceInfoItem(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    final textColor = Theme.of(context).textTheme.titleLarge?.color;
+    final hintColor = textColor?.withOpacity(0.55);
+
+    return Tooltip(
+      message:
+          '$label: ${value.isNotEmpty ? value : "..."}\n(${_tr("Click to copy", "Nhấp để sao chép")})',
+      waitDuration: const Duration(milliseconds: 500),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(4),
+        onTap: () {
+          if (value.isNotEmpty && value != '...') {
+            Clipboard.setData(ClipboardData(text: value));
+            showToast(translate("Copied"));
+          }
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 3, horizontal: 2),
+          child: Row(
+            children: [
+              Icon(
+                icon,
+                size: 14,
+                color: MyTheme.accent,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                '$label: ',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: hintColor,
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  value.isNotEmpty ? value : '...',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: textColor,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Icon(
+                Icons.copy_rounded,
+                size: 11,
+                color: hintColor?.withOpacity(0.4),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget buildTip(BuildContext context) {
     final isOutgoingOnly = bind.isOutgoingOnly();
+    if (isOutgoingOnly) {
+      return Padding(
+        padding:
+            const EdgeInsets.only(left: 20.0, right: 16, top: 16.0, bottom: 5),
+        child: Text(
+          translate("outgoing_only_desk_tip"),
+          overflow: TextOverflow.clip,
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      );
+    }
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark
+        ? Colors.white.withOpacity(0.04)
+        : Colors.black.withOpacity(0.03);
+    final borderColor = isDark
+        ? Colors.white.withOpacity(0.08)
+        : Colors.black.withOpacity(0.08);
+
     return Padding(
       padding:
-          const EdgeInsets.only(left: 20.0, right: 16, top: 16.0, bottom: 5),
+          const EdgeInsets.only(left: 20.0, right: 16, top: 12.0, bottom: 6.0),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Column(
-            children: [
-              if (!isOutgoingOnly)
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    translate("Your Desktop"),
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              _tr("Device Information", "Thông tin thiết bị"),
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ) ??
+                  const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+            ),
+          ),
+          const SizedBox(height: 8.0),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: cardBg,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: borderColor),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildDeviceInfoItem(
+                  context,
+                  icon: Icons.desktop_windows_outlined,
+                  label: _tr("Computer Name", "Tên máy"),
+                  value: _hostname,
                 ),
-            ],
-          ),
-          SizedBox(
-            height: 10.0,
-          ),
-          if (!isOutgoingOnly)
-            Text(
-              translate("desk_tip"),
-              overflow: TextOverflow.clip,
-              style: Theme.of(context).textTheme.bodySmall,
+                Divider(
+                  height: 8,
+                  thickness: 0.5,
+                  color: borderColor,
+                ),
+                _buildDeviceInfoItem(
+                  context,
+                  icon: Icons.lan_outlined,
+                  label: _tr("IP Address", "IP"),
+                  value: _ipAddress,
+                ),
+                Divider(
+                  height: 8,
+                  thickness: 0.5,
+                  color: borderColor,
+                ),
+                _buildDeviceInfoItem(
+                  context,
+                  icon: Icons.person_outline,
+                  label: _tr("User Account", "Tài khoản"),
+                  value: _username,
+                ),
+              ],
             ),
-          if (isOutgoingOnly)
-            Text(
-              translate("outgoing_only_desk_tip"),
-              overflow: TextOverflow.clip,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
+          ),
         ],
       ),
     );
@@ -449,8 +655,9 @@ class _DesktopHomePageState extends State<DesktopHomePage>
       final isToUpdate = (isWindows || isMacOS) && bind.mainIsInstalled();
       String btnText = isToUpdate ? 'Update' : 'Download';
       GestureTapCallback onPressed = () async {
-        final Uri url = Uri.parse('https://rustdesk.com/download');
-        await launchUrl(url);
+        if (updateUrl.isNotEmpty) {
+          await launchUrl(Uri.parse(updateUrl));
+        }
       };
       if (isToUpdate) {
         onPressed = () {
@@ -538,9 +745,6 @@ class _DesktopHomePageState extends State<DesktopHomePage>
             "",
             () async {},
             marginTop: LinuxCards.isEmpty ? 20.0 : 5.0,
-            help: 'Help',
-            link:
-                'https://rustdesk.com/docs/en/client/linux/#permissions-issue',
             closeButton: true,
             closeOption: keyShowSelinuxHelpTip,
           ));
@@ -549,15 +753,11 @@ class _DesktopHomePageState extends State<DesktopHomePage>
       if (bind.mainCurrentIsWayland()) {
         LinuxCards.add(buildInstallCard(
             "Warning", "wayland_experiment_tip", "", () async {},
-            marginTop: LinuxCards.isEmpty ? 20.0 : 5.0,
-            help: 'Help',
-            link: 'https://rustdesk.com/docs/en/client/linux/#x11-required'));
+            marginTop: LinuxCards.isEmpty ? 20.0 : 5.0));
       } else if (bind.mainIsLoginWayland()) {
         LinuxCards.add(buildInstallCard("Warning",
             "Login screen using Wayland is not supported", "", () async {},
-            marginTop: LinuxCards.isEmpty ? 20.0 : 5.0,
-            help: 'Help',
-            link: 'https://rustdesk.com/docs/en/client/linux/#login-screen'));
+            marginTop: LinuxCards.isEmpty ? 20.0 : 5.0));
       }
       if (LinuxCards.isNotEmpty) {
         return Column(
@@ -707,8 +907,13 @@ class _DesktopHomePageState extends State<DesktopHomePage>
   @override
   void initState() {
     super.initState();
+    _loadDeviceInfo();
+    SupportTicketListener.instance.initClientWatcher();
     _updateTimer = periodic_immediate(const Duration(seconds: 1), () async {
       await gFFI.serverModel.fetchID();
+      if (_ipAddress.isEmpty) {
+        _loadDeviceInfo();
+      }
       final error = await bind.mainGetError();
       if (systemError != error) {
         systemError = error;
