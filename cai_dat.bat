@@ -736,6 +736,8 @@ cd /d "%RD_DIR%"
 start "" /d "%RD_DIR%" "%RD_PATH%"
 
 :: Khoi chay tien trinh lang nghe phim tat toan cuc Ctrl+Alt+H (BaoSuCoIT --listen)
+taskkill /F /IM BaoSuCoIT.exe > nul 2>&1
+timeout /t 1 /nobreak >nul 2>&1
 if exist "%RD_DIR%\BaoSuCoIT.exe" (
     start "" /d "%RD_DIR%" "%RD_DIR%\BaoSuCoIT.exe" --listen
 )
