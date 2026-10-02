@@ -844,7 +844,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
     "                    Stop-Process -Id $wmi.ProcessId -Force -ErrorAction SilentlyContinue; " ^
     "                }; " ^
     "            } catch {}; " ^
-    "            & taskkill.exe /F /IM 'BVĐKKH - Remote.exe' /IM 'BVDKKH - Remote.exe' /IM 'rustdesk.exe' /T | Out-Null; " ^
+    "            Get-Process | Where-Object { $_.ProcessName -match '(?i)(bvdkkh|rustdesk)' } | Stop-Process -Force -ErrorAction SilentlyContinue; " ^
     "        }; " ^
     "        Start-Sleep -Milliseconds 500; " ^
     "        $count++; " ^
