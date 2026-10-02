@@ -3,8 +3,7 @@ param(
 )
 
 $rootDir = $PSScriptRoot
-$inputCred = "url=https://github.com/ngtrongha/rustdesk.git`n`n"
-$cred = $inputCred | git -C $rootDir credential fill
+$cred = cmd.exe /c "echo url=https://github.com/ngtrongha/rustdesk.git | git -C `"$rootDir`" credential fill" 2>$null | Out-String
 $match = [regex]::Match($cred, 'password=(.+)')
 if (-not $match.Success) {
     Write-Error "Khong the lay GitHub token tu git credential helper."
