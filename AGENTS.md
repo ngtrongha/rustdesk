@@ -1,4 +1,16 @@
-# RustDesk Guide
+# BVĐKKH - Remoter Guide (RustDesk)
+
+## Project Context & Developer
+- **Project:** BVĐKKH - Remoter
+- **Lead Developer:** Nguyễn Trọng Hà
+- **Email / Contact:** trongha.dev@gmail.com
+- **Organization / Unit:** Tổ CNTT - Bệnh viện Đa khoa tỉnh Khánh Hòa
+- **Copyright Header Convention:** Every new or updated source file must have the copyright header:
+  ```text
+  // Copyright (c) 2026 Nguyễn Trọng Hà. All rights reserved.
+  // Project: BVĐKKH - Remoter
+  // Author: Nguyễn Trọng Hà
+  ```
 
 ## Project Layout
 
@@ -164,3 +176,14 @@ Then translate that source into the file's target language (infer the language f
 * New English-text keys use sentence case, not Title Case: `Use ID whitelisting`, **not** `Use ID Whitelisting`. Acronyms (ID, IP, 2FA…) stay uppercase. Legacy Title-Case keys (e.g. `Use IP Whitelisting`) stay as-is — do not rename them.
 * Since the key itself is the English display text, a sentence-case key usually needs **no** `en.rs` entry; add one only when the display text must differ from the key (e.g. `*_tip` keys).
 * Append each new key to `template.rs` (with `""`) and to every `src/lang/*.rs` file (translated, or `""` if unsure; always `""` for `it.rs`), at the end of the list.
+
+## Dual-Branch & GitHub Actions Release Workflow
+
+When a feature is finished and the user requests build/release:
+1. Ensure code passes analysis on current branch.
+2. Synchronize changes to both:
+   - Windows 10+ branch: `feat/upgrade-flutter-win10`
+   - Windows 7 branch: `win7-lts`
+   - Main branch: `master`
+3. Push all updated branches to `origin`.
+4. Trigger GitHub Actions build (`Flutter Tag Build` - `.github/workflows/flutter-tag.yml`) via `workflow_dispatch` API or `trigger_build.ps1` for both `feat/upgrade-flutter-win10` and `win7-lts`.
