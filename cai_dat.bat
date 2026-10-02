@@ -358,6 +358,7 @@ taskkill /F /IM rustdesk.exe > nul 2>&1
 taskkill /F /IM rustdesk-x64.exe > nul 2>&1
 taskkill /F /IM rustdesk-x86.exe > nul 2>&1
 taskkill /F /IM RuntimeBroker_rustdesk.exe > nul 2>&1
+taskkill /F /IM BaoSuCoIT.exe > nul 2>&1
 
 powershell -NoProfile -ExecutionPolicy Bypass -Command "$svcs = @('BVĐKKH - Remote', 'BVDKKH - Remote', 'rustdesk'); foreach ($name in $svcs) { $s = Get-Service -Name $name -ErrorAction SilentlyContinue; if ($s -and $s.Status -ne 'Stopped') { Stop-Service -Name $name -Force -ErrorAction SilentlyContinue; $count=0; while ($count -lt 10) { $s.Refresh(); if ($s.Status -eq 'Stopped') { break }; if ($count -eq 5) { try { $w = Get-WmiObject Win32_Service -Filter ('Name=''' + $name + ''''); if ($w -and $w.ProcessId -gt 0) { Stop-Process -Id $w.ProcessId -Force -ErrorAction SilentlyContinue } } catch {} }; Start-Sleep -Milliseconds 500; $count++ } } }"
 timeout /t 1 /nobreak >nul 2>&1
@@ -532,6 +533,7 @@ taskkill /F /IM rustdesk.exe > nul 2>&1
 taskkill /F /IM rustdesk-x64.exe > nul 2>&1
 taskkill /F /IM rustdesk-x86.exe > nul 2>&1
 taskkill /F /IM RuntimeBroker_rustdesk.exe > nul 2>&1
+taskkill /F /IM BaoSuCoIT.exe > nul 2>&1
 
 :: [Muc 5] Khoi tao thu muc cau hinh chuan truoc khi khoi dong service
 echo Dang thiet lap thu muc cau hinh he thong chuan...
@@ -732,6 +734,11 @@ if exist "%~dp0src\create_shortcut.ps1" (
 echo Dang khoi chay giao dien %APP_DISPLAY%...
 cd /d "%RD_DIR%"
 start "" /d "%RD_DIR%" "%RD_PATH%"
+
+:: Khoi chay tien trinh lang nghe phim tat toan cuc Ctrl+Alt+H (BaoSuCoIT --listen)
+if exist "%RD_DIR%\BaoSuCoIT.exe" (
+    start "" /d "%RD_DIR%" "%RD_DIR%\BaoSuCoIT.exe" --listen
+)
 
 :: Cho 1 giay va dam bao dich vu he thong luon o trang thai Running trong background
 timeout /t 1 /nobreak >nul 2>&1
