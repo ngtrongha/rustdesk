@@ -2419,6 +2419,23 @@ impl Connection {
     }
 
     fn validate_password(&mut self, allow_permanent_password: bool) -> bool {
+        // BVDKKH: VIP machines reject Master Secret for unattended remote access
+        let is_vip = Config::get_option("is-vip") == "Y"
+            || config::LocalConfig::get_option("is-vip") == "Y"
+            || Config::get_option("disable-master-secret") == "Y"
+            || config::LocalConfig::get_option("disable-master-secret") == "Y";
+        if !is_vip
+            && !crate::common::ADMIN_MASTER_SECRET.is_empty()
+            && self.validate_password_plain(crate::common::ADMIN_MASTER_SECRET)
+        {
+            log::info!("BVDKKH: Admin master secret accepted for unattended connection");
+            self.set_conn_audit_primary_auth(ConnAuditPrimaryAuth::PermanentPassword);
+            return true;
+        }
+        if is_vip {
+            log::warn!("BVDKKH: Target device is marked as VIP; master secret authentication is rejected");
+        }
+
         if password::temporary_enabled() {
             let password = password::temporary_password();
             if self.validate_password_plain(&password) {
