@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Nguyễn Trọng Hà. All rights reserved.
+// Project: BVĐKKH - Remoter
+// Author: Nguyễn Trọng Hà
+
 // main window right pane
 
 import 'dart:async';
@@ -19,6 +23,7 @@ import '../../common/formatter/id_formatter.dart';
 import '../../common/widgets/peer_tab_page.dart';
 import '../../common/widgets/autocomplete.dart';
 import '../../models/platform_model.dart';
+import '../../common/widgets/login.dart';
 import '../../desktop/widgets/material_mod_popup_menu.dart' as mod_menu;
 
 class OnlineStatusWidget extends StatefulWidget {
@@ -40,14 +45,7 @@ class _OnlineStatusWidgetState extends State<OnlineStatusWidget> {
   double get em => 14.0;
   double? get height => bind.isIncomingOnly() ? null : em * 3;
 
-  void onUsePublicServerGuide() {
-    const url = "https://rustdesk.com/pricing";
-    canLaunchUrlString(url).then((can) {
-      if (can) {
-        launchUrlString(url);
-      }
-    });
-  }
+  void onUsePublicServerGuide() {}
 
   @override
   void initState() {
@@ -78,36 +76,7 @@ class _OnlineStatusWidgetState extends State<OnlineStatusWidget> {
               .marginOnly(left: em),
         );
 
-    setupServerWidget() => Flexible(
-          child: Offstage(
-            offstage: !(!_svcStopped.value &&
-                stateGlobal.svcStatus.value == SvcStatus.ready &&
-                _svcIsUsingPublicServer.value),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Text(', ', style: TextStyle(fontSize: em)),
-                Flexible(
-                  child: InkWell(
-                    onTap: onUsePublicServerGuide,
-                    child: Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            translate('setup_server_tip'),
-                            style: TextStyle(
-                                decoration: TextDecoration.underline,
-                                fontSize: em),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-              ],
-            ),
-          ),
-        );
+    setupServerWidget() => const SizedBox.shrink();
 
     basicWidget() => Row(
           crossAxisAlignment: CrossAxisAlignment.center,
@@ -314,9 +283,60 @@ class _ConnectionPageState extends State<ConnectionPage>
                 Flexible(child: _buildRemoteIDTextField(context)),
               ],
             ).marginOnly(top: 22),
-            SizedBox(height: 12),
-            Divider().paddingOnly(right: 12),
-            Expanded(child: PeerTabPage()),
+            Obx(() {
+              final isLogin = gFFI.userModel.isLogin;
+              if (!isLogin) {
+                return Expanded(
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.shield_outlined,
+                          size: 44,
+                          color: Theme.of(context).hintColor.withOpacity(0.3),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Danh sách thiết bị chỉ hiển thị sau khi đăng nhập',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Theme.of(context).hintColor.withOpacity(0.8),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        OutlinedButton.icon(
+                          icon: const Icon(Icons.login_rounded, size: 16),
+                          label: const Text('Đăng nhập Quản trị viên'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: MyTheme.accent,
+                            side: BorderSide(
+                                color: MyTheme.accent.withOpacity(0.5)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 8),
+                          ),
+                          onPressed: () async {
+                            await loginDialog();
+                          },
+                        ),
+                      ],
+                    ).marginOnly(right: 12),
+                  ),
+                );
+              }
+              return Expanded(
+                child: Column(
+                  children: [
+                    const SizedBox(height: 12),
+                    const Divider().paddingOnly(right: 12),
+                    Expanded(child: PeerTabPage()),
+                  ],
+                ),
+              );
+            }),
           ],
         ).paddingOnly(left: 12.0)),
         if (!isOutgoingOnly) const Divider(height: 1),

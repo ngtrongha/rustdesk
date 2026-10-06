@@ -152,7 +152,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
     return ChangeNotifierProvider.value(
       value: gFFI.serverModel,
       child: Container(
-        width: isIncomingOnly ? 280.0 : 200.0,
+        width: isIncomingOnly ? 280.0 : 270.0,
         color: Theme.of(context).colorScheme.background,
         child: Stack(
           children: [
@@ -213,7 +213,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
   buildIDBoard(BuildContext context) {
     final model = gFFI.serverModel;
     return Container(
-      margin: const EdgeInsets.only(left: 20, right: 11),
+      margin: const EdgeInsets.only(left: 16, right: 16),
       height: 57,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.baseline,
@@ -325,7 +325,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
     final showOneTime = model.approveMode != 'click' &&
         model.verificationMethod != kUsePermanentPassword;
     return Container(
-      margin: EdgeInsets.only(left: 20.0, right: 16, top: 13, bottom: 13),
+      margin: EdgeInsets.only(left: 16.0, right: 16, top: 13, bottom: 13),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.baseline,
         textBaseline: TextBaseline.alphabetic,
@@ -423,7 +423,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
 
   Widget buildSupportRequestButton(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(left: 20, right: 11, top: 10, bottom: 4),
+      margin: const EdgeInsets.only(left: 16, right: 16, top: 10, bottom: 4),
       width: double.infinity,
       child: ElevatedButton.icon(
         icon: const Icon(Icons.support_agent_rounded, size: 16),
@@ -585,7 +585,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
 
     return Padding(
       padding:
-          const EdgeInsets.only(left: 20.0, right: 16, top: 12.0, bottom: 6.0),
+          const EdgeInsets.only(left: 16.0, right: 16, top: 12.0, bottom: 6.0),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.start,
